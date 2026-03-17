@@ -57,7 +57,7 @@ $$\angle\!\left(\dfrac{Y_t[k,n+1]}{Y_t[k,n]}\right) \approx 2\pi \epsilon_t T_s 
 where $\eta_{k,n}$ represents noise-induced phase error.
 A least-squares CFO estimator is given by:
 
-$$\hat{\epsilon}_t = \dfrac{1}{2\pi T_s}\cdot \dfrac{1}{|P_t|N}\sum_{k\in P_t}\sum_{n=1}^{N-1}\angle\!\left(\dfrac{Y_t[k,n+1]}{Y_t[k,n]}\right) \quad (7)$$
+$$\hat{\epsilon}_t = \dfrac{1}{2\pi T_s}\cdot \dfrac{1}{|\mathcal{P_t}|N}\sum_{k\in \mathcal{P}}\sum_{n=1}^{N-1}\angle\!\left(\dfrac{Y_t[k,n+1]}{Y_t[k,n]}\right) \quad (7)$$
 
 **Explanation:**
 The above estimator leverages phase rotation between consecutive OFDM symbols to estimate CFO. Because CFO induces a deterministic linear phase progression over time, the phase difference isolates the frequency offset component. The additive noise term introduces random perturbation to the measured phase. Averaging across pilot subcarriers improves estimation accuracy by reducing noise variance. The number of pilot subcarriers is proportional to $\rho_t K$, meaning pilot ratio directly impacts estimation quality. As $\rho_t$ increases, the estimator variance decreases due to increased averaging. This estimator is computationally simple and suitable for real-time implementation. However, its performance strongly depends on pilot power and pilot density, motivating adaptive optimization.
