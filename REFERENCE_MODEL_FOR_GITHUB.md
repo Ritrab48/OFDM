@@ -14,12 +14,12 @@ $$|\mathcal{P}| = \rho_t K \quad (1)$$
 The remaining $(1 - \rho_t)K$ subcarriers are used for data transmission.
 The transmitted OFDM symbol at subcarrier $k$ and OFDM symbol index $n$ is given by:
 
-$$X_t[k,n] = \begin{cases} \sqrt{\dfrac{\beta_t P_t}{\rho_t K}}\, s_p[k,n], & k \in P_t \\ \sqrt{\dfrac{(1-\beta_t)P_t}{(1-\rho_t)K}}\, s_d[k,n], & k \in D_t \end{cases} \quad (2)$$
+$$X_t[k,n] = \begin{cases} \sqrt{\dfrac{\beta_t P_t}{\rho_t K}}\, s_p[k,n], & k \in \mathcal{P_t} \\ \\ \sqrt{\dfrac{(1-\beta_t)P_t}{(1-\rho_t)K}}\, s_d[k,n], & k \in \mathcal{D_t} \end{cases} \quad (2)$$
 
 where:
 * $\beta_t \in (0, 1)$ is the fraction of total power allocated to pilots,
 * $s_p[k, n]$ and $s_d[k, n]$ are unit power pilot and data symbols respectively,
-* $P_t$ and $D_t$ denote pilot and data index sets.
+* $\mathcal{P_t}$ and $\mathcal{D_t}$ denote pilot and data index sets.
 
 **Explanation:**
 The above equation defines the adaptive pilot and power allocation mechanism. The parameter $\rho_t$ determines how many subcarriers are dedicated to synchronization and sensing functions through pilot transmission. The parameter $\beta_t$ controls the fraction of total transmit power devoted to pilot signals, which directly affects estimation accuracy. By scaling pilot symbols with $\sqrt{\dfrac{\beta_t P_t}{\rho_t K}}$, the total pilot power equals $\beta_t P_t$, ensuring power normalization. Similarly, the data subcarriers receive total power $(1 - \beta_t)P_t$. This structure ensures that total transmit power constraint is satisfied at every frame. Importantly, $\rho_t$ and $\beta_t$ are treated as adaptive control variables rather than fixed parameters. This adaptive structure forms the basis of the reinforcement learning framework proposed later.
