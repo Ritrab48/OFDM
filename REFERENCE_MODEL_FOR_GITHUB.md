@@ -9,17 +9,17 @@ We consider a single-input single-output (SISO) Orthogonal Frequency Division Mu
 ### 1.1 OFDM Transmission Model
 Let $\rho_t \in (0, 1)$ denote the pilot ratio at frame $t$. Then, the number of pilot subcarriers is:
 
-$$|\mathcal{P}| = \rho_t K \quad (1)$$
+$$|\mathcal{P}_t| = \rho_t K \quad (1)$$
 
 The remaining $(1 - \rho_t)K$ subcarriers are used for data transmission.
 The transmitted OFDM symbol at subcarrier $k$ and OFDM symbol index $n$ is given by:
 
-$$X_t[k,n] = \begin{cases} \sqrt{\dfrac{\beta_t P_t}{\rho_t K}}\, s_p[k,n], & k \in \mathcal{P_t} \\ \\ \sqrt{\dfrac{(1-\beta_t)P_t}{(1-\rho_t)K}}\, s_d[k,n], & k \in \mathcal{D_t} \end{cases} \quad (2)$$
+$$X_t[k,n] = \begin{cases} \sqrt{\dfrac{\beta_t P_t}{\rho_t K}}\, s_p[k,n], & k \in \mathcal{P}_t \\ \\ \sqrt{\dfrac{(1-\beta_t)P_t}{(1-\rho_t)K}}\, s_d[k,n], & k \in \mathcal{D}_t \end{cases} \quad (2)$$
 
 where:
 * $\beta_t \in (0, 1)$ is the fraction of total power allocated to pilots,
 * $s_p[k, n]$ and $s_d[k, n]$ are unit power pilot and data symbols respectively,
-* $\mathcal{P_t}$ and $\mathcal{D_t}$ denote pilot and data index sets.
+* $\mathcal{P}_t$ and $\mathcal{D}_t$ denote pilot and data index sets.
 
 **Explanation:**
 The above equation defines the adaptive pilot and power allocation mechanism. The parameter $\rho_t$ determines how many subcarriers are dedicated to synchronization and sensing functions through pilot transmission. The parameter $\beta_t$ controls the fraction of total transmit power devoted to pilot signals, which directly affects estimation accuracy. By scaling pilot symbols with $\sqrt{\dfrac{\beta_t P_t}{\rho_t K}}$, the total pilot power equals $\beta_t P_t$, ensuring power normalization. Similarly, the data subcarriers receive total power $(1 - \beta_t)P_t$. This structure ensures that total transmit power constraint is satisfied at every frame. Importantly, $\rho_t$ and $\beta_t$ are treated as adaptive control variables rather than fixed parameters. This adaptive structure forms the basis of the reinforcement learning framework proposed later.
@@ -57,7 +57,7 @@ $$\angle\!\left(\dfrac{Y_t[k,n+1]}{Y_t[k,n]}\right) \approx 2\pi \epsilon_t T_s 
 where $\eta_{k,n}$ represents noise-induced phase error.
 A least-squares CFO estimator is given by:
 
-$$\hat{\epsilon}_t = \dfrac{1}{2\pi T_s}\cdot \dfrac{1}{|\mathcal{P_t}|N}\sum_{k\in \mathcal{P_t}}\sum_{n=1}^{N-1}\angle\!\left(\dfrac{Y_t[k,n+1]}{Y_t[k,n]}\right) \quad (7)$$
+$$\hat{\epsilon}_t = \dfrac{1}{2\pi T_s}\cdot \dfrac{1}{|\mathcal{P_t}|N}\sum_{k\in \mathcal{P}_t}\sum_{n=1}^{N-1}\angle\!\left(\dfrac{Y_t[k,n+1]}{Y_t[k,n]}\right) \quad (7)$$
 
 **Explanation:**
 The above estimator leverages phase rotation between consecutive OFDM symbols to estimate CFO. Because CFO induces a deterministic linear phase progression over time, the phase difference isolates the frequency offset component. The additive noise term introduces random perturbation to the measured phase. Averaging across pilot subcarriers improves estimation accuracy by reducing noise variance. The number of pilot subcarriers is proportional to $\rho_t K$, meaning pilot ratio directly impacts estimation quality. As $\rho_t$ increases, the estimator variance decreases due to increased averaging. This estimator is computationally simple and suitable for real-time implementation. However, its performance strongly depends on pilot power and pilot density, motivating adaptive optimization.
@@ -138,7 +138,7 @@ The system state at frame $t$ is defined as:
 $$s_t = [\,\hat{\epsilon}_t,\tilde{\epsilon}_t^2,\mathrm{SNR}_t,|H_t|^2,\rho_{t-1},\beta_{t-1}\,] \quad (19)$$
 
 **Explanation:**
-The state vector captures all relevant measurable quantities required for decision making. The estimated CFO $\hat{\epsilon} _ t$ reflects current synchronization status. The squared residual error $\tilde{\epsilon}_t^2$ directly influences ICI power and therefore communication performance. The instantaneous SNR characterizes channel quality and noise level. The channel gain magnitude $|H_t|^2$ captures fading conditions that affect achievable rate. The inclusion of previous control variables $\rho _ {t-1}$ and $\beta _ {t-1}$ allows the agent to learn temporal correlations in decision effects. This state representation satisfies the Markov property because future system evolution depends only on current CFO, channel condition, and chosen action. The state dimension is intentionally moderate to ensure tractable learning for undergraduate implementation.
+The state vector captures all relevant measurable quantities required for decision making. The estimated CFO $\hat{\epsilon}_t$ reflects current synchronization status. The squared residual error $\tilde{\epsilon}_t^2$ directly influences ICI power and therefore communication performance. The instantaneous SNR characterizes channel quality and noise level. The channel gain magnitude $|H_t|^2$ captures fading conditions that affect achievable rate. The inclusion of previous control variables $\rho_{t-1}$ and $\beta_{t-1}$ allows the agent to learn temporal correlations in decision effects. This state representation satisfies the Markov property because future system evolution depends only on current CFO, channel condition, and chosen action. The state dimension is intentionally moderate to ensure tractable learning for undergraduate implementation.
 
 ### 6.2 Action Space Definition
 We discretize the control variables for DQN implementation:
