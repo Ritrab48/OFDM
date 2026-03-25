@@ -1,284 +1,186 @@
 # Questions for Professor / Paper Author
 
-## Purpose of This Note
+## Purpose
 
-This note separates three things clearly:
+This document is the **current** supervisor-facing checklist.
 
-1. What is directly supported by `REFERENCE_MODEL_FINAL.md`
-2. What was assumed during implementation because the paper does not fully specify it
-3. What should be clarified with the professor or original paper author before treating the current code as a faithful research implementation
+It is not a history of every question that ever existed. It only records:
 
-This note is intentionally critical. It does not assume that the current implementation choices are correct just because they are working in code.
+- what has already been resolved
+- what is still open
+- what should be confirmed before final experiments and paper writing
 
-## 1. State Scaling vs Reward Design
+For the full implementation context, read:
 
-These are different issues.
+- `PROJECT_HANDOFF.md`
+- `IMPLEMENTATION_DIVERGENCE_LOG.md`
+- `ENDGAME_PLAN.md`
 
-### State scaling
+## 1. What Has Already Been Resolved
 
-The environment produces a raw state with measurable quantities:
+The following project decisions are already settled enough to proceed:
 
-- estimated CFO
-- synchronization mismatch
-- SINR
-- pilot-domain SNR
-- estimated channel power
-- previous pilot ratio
-- previous pilot power fraction
+### Environment setup
 
-Before passing this state to the neural network, the implementation rescales the values. For example:
+The current implementation assumptions are acceptable for now:
 
-- CFO is divided by a reference scale
-- some positive quantities use `log(1 + x)`
-- all features are clipped to a fixed range
+- `K = 40`
+- `N = 8`
+- `P = 1.0`
+- `sigma^2 = 0.05`
+- `T_s = 66.666e-6`
+- `Delta f = 15 kHz`
+- CFO mean reversion `0.95`
+- CFO innovation standard deviation `5 Hz`
+- channel correlation `0.98`
 
-This does **not** change the physical meaning of the measurements. It only makes neural-network training numerically easier.
+These are still implementation choices, but they do not currently need clarification.
 
-### Reward design
+### Project scope
 
-The reward defines what the agent is trying to optimize:
+The project is being treated as:
 
-`reward = lambda_1 * rate - lambda_2 * sync_metric - lambda_3 * sensing_metric`
+- a proof-of-concept simulation study
+- not a hardware deployment project
 
-This is a separate design issue. If the reward is poorly balanced, the agent can learn the wrong behavior even when the state scaling is good.
+### Modeling assumptions
 
-### Key conclusion
+The following assumptions are acceptable for this project:
 
-State scaling is **not** a fix for reward-design problems.
+- repeated pilots across adjacent OFDM symbols
+- quasi-static / block fading over the frame
+- frame-level action updates
 
-It helps optimization stability, but it does not solve the question:
+### Baselines
 
-"Are the reward terms weighted in a scientifically justified way?"
+The project will compare the DQN against:
 
-## 2. Current Reward Design in the Code
+- all fixed `(rho, beta)` action policies
+- random policy
+- heuristic policy
 
-The current implementation uses:
+### Reporting direction
 
-- `lambda_1 = 1.0` for rate
-- `lambda_2 = 1.0` for synchronization mismatch
-- `lambda_3 = 0.5` for sensing metric
+The report should include:
 
-These were chosen as practical placeholder values for a working reference implementation.
+- reward-related plots
+- baseline comparison tables
+- communication, synchronization, and sensing metrics
+- action-distribution information
 
-They are **not** normalized and they do **not** need to sum to 1.
+### Main project aim
 
-However, that does **not** mean they are automatically good research choices.
+The main goal is:
 
-What matters is whether the three reward terms are on compatible numerical scales.
+- to demonstrate adaptive pilot/power control
 
-If typical values are approximately:
+## 2. What Is Still Open
 
-- `rate ~ 2 to 3`
-- `sync mismatch ~ 0.1`
-- `sensing metric ~ 0.2 to 0.3`
+These are the main questions that still matter.
 
-then the reward is dominated by the rate term. That may or may not match the paper's intended tradeoff.
+## 3. Questions Still Worth Asking
 
-## 3. Can This Be Used on Actual Hardware Tomorrow?
+### A. Reward-weight selection criterion
 
-Short answer: **no, not directly**.
+This is the most important unresolved item.
 
-### What is hardware-plausible
+Current issue:
 
-The paper's overall idea is hardware-plausible because it says the controller should use measurable quantities only.
+- the project still needs a final rule for selecting `lambda_1`, `lambda_2`, and `lambda_3`
 
-That part is reasonable.
+What needs confirmation:
 
-### What is not hardware-ready in the current implementation
+1. Should reward weights be chosen mainly by:
+   - how smoothly the reward-vs-episodes curve settles
+   - the final reward value
+   - performance against baselines
+   - a hybrid of the above
 
-The current code is still a simulator and proof-of-concept implementation. It includes simplifying assumptions:
+2. If smooth convergence is the main criterion, how should it be measured?
+   For example:
+   - low variance in the last training window
+   - low slope in the last training window
+   - moving-average smoothness
 
-- block-fading scalar channel per frame
-- mean-reverting CFO process chosen for stable simulation
-- synthetic noise and fading
-- a sensing metric implemented as a measurable proxy chosen during implementation
-- no SDR or real radio interface
-- no real-time inference or frame formatting pipeline
+3. Is reward normalization acceptable as an implementation aid before tuning the weights?
+   Current implementation:
+   - normalize reward terms by reference scales
+   - then tune the lambdas on top of those normalized terms
 
-### Key conclusion
+### B. State SINR term
 
-The current system is useful as a simulation implementation of the paper structure.
+This is the second major unresolved item.
 
-It is **not** the same thing as a deployable hardware system.
+Current issue:
 
-To move toward hardware, the professor or author needs to confirm:
+- the paper wants measurable state variables
+- the exact analytical SINR in the paper is not directly measurable online in exact form
 
-- which measurable sensing metric should be used in practice
-- whether the pilot repetition assumption is acceptable
-- whether the frame-by-frame control loop is realistic
-- what physical operating regime the system is supposed to target
+Current implementation:
 
-## 4. What Came Directly From the Paper
+- the state uses an observable SINR proxy derived from:
+  - synchronization mismatch `mathcal{E}_t`
+  - pilot power
+  - noise variance
+  - estimated channel power
 
-The following parts are directly aligned with the final reference model:
+What needs confirmation:
 
-- adaptive action variables are pilot ratio `rho_t` and pilot power fraction `beta_t`
-- discrete action set:
-  - `rho in {0.1, 0.2, 0.3, 0.4}`
-  - `beta in {0.2, 0.4, 0.6}`
-- CFO is estimated from repeated pilots across adjacent OFDM symbols
-- synchronization quality uses an observable residual mismatch metric
-- the state uses measurable quantities from the previous frame
-- the agent is implemented as a DQN with replay memory and target network
-- the reward uses rate, synchronization quality, and sensing quality terms
+4. Is this observable SINR proxy acceptable for the project?
 
-## 5. What Was Assumed During Implementation
+5. In the paper/report, should this term be described as:
+   - a measurable estimate of Equation (9)
+   - an observable proxy for communication quality
+   - a proof-of-concept substitute for the exact analytical SINR
 
-The paper gives the framework, but it does not uniquely determine every numeric setup. The following values were chosen during implementation and should be treated as assumptions unless the professor confirms them.
+### C. Sensing metric wording
 
-### Environment parameters currently used
+This is less urgent than the two items above, but still worth locking.
 
-- number of subcarriers: `K = 40`
-- OFDM symbols per frame: `N = 8`
-- average power: `P = 1.0`
-- noise variance: `sigma^2 = 0.05`
-- OFDM symbol duration: `T_s = 66.666e-6`
-- subcarrier spacing: `15 kHz`
-- CFO mean-reversion coefficient: `0.95`
-- CFO innovation standard deviation: `5 Hz`
-- channel correlation coefficient: `0.98`
-- episode length: `64` frames
+Current implementation:
 
-### Sensing setup currently used
+- `S_t` is an empirical observable metric based on delay-correlation sharpness
+- specifically:
+  - build a delay-correlation profile
+  - define `S_t = mean sidelobe power / peak power`
 
-The paper says the sensing term should be observable, but it does not fully lock down a single implementation formula.
+What needs confirmation:
 
-The current default code uses a measurable proxy:
+6. Is this exact empirical form of `S_t` acceptable to report as the final sensing metric?
 
-- build a delay-correlation profile from pilot-domain channel estimates after CFO compensation
-- define sensing quality by the sidelobe-to-peak ratio
+7. Should CRLB-based sensing appear at all in the writeup?
+   Recommended options:
+   - not at all
+   - appendix only
+   - ablation / comparison only
 
-This is implementable and observable, but it is still an implementation choice, not a confirmed paper-authorized formula.
+## 4. Suggested Short Version to Send
 
-The code also supports an optional CRLB mode for comparison with earlier paper drafts, but that mode should be treated as a comparison setting rather than the final-paper default.
-
-### DQN training setup currently used
-
-- replay capacity: `4000`
-- batch size: `32`
-- hidden layers: `(48, 48)`
-- learning rate: `1e-3`
-- discount factor: `0.98`
-- epsilon-greedy from `1.0` down to `0.05`
-- warmup steps: `128`
-- target update interval: `100`
-
-These are engineering choices, not paper-derived truths.
-
-## 6. Exact Questions to Ask the Professor / Original Author
-
-Below is the recommended question list. These should be asked explicitly, not assumed.
-
-### A. Simulation parameter clarification
-
-1. What exact values should I use for the environment parameters?
-   Ask for:
-   - number of subcarriers `K`
-   - number of OFDM symbols `N`
-   - average transmit power or operating SNR
-   - noise variance
-   - CFO drift parameters
-   - channel fading model and temporal correlation
-   - episode length and number of training episodes
-
-2. Are these values meant to represent a specific practical wireless scenario, or are they only illustrative?
-
-### B. Sensing metric clarification
-
-3. What exact measurable sensing metric should I implement for `S_t`?
-
-4. Should `S_t` represent:
-   - delay estimation error
-   - delay-correlation sharpness
-   - a CRLB-like proxy
-   - range error
-   - some other observable sensing metric
-
-5. If the paper intentionally leaves `S_t` open-ended, what specific sensing metric do you want used for the project?
-
-### C. Reward clarification
-
-6. Should the reward use raw terms directly, or should each term be normalized by a reference scale first?
-
-7. How should `lambda_1`, `lambda_2`, and `lambda_3` be selected?
-   Ask whether they should be:
-   - chosen heuristically
-   - tuned experimentally
-   - derived from target operating constraints
-   - set so the reward terms have comparable scale
-
-8. Is the goal to maximize rate primarily, with synchronization and sensing as soft penalties, or should the three objectives be treated more evenly?
-
-### D. Baseline and evaluation clarification
-
-9. What baselines should I compare against?
-   Recommended baseline candidates:
-   - fixed pilot ratio and power allocation
-   - random action selection
-   - simple heuristic adaptation rule
-
-10. Which figures or tables are expected in the final project report?
-   Possible outputs:
-   - reward vs training episode
-   - achievable rate vs policy
-   - synchronization metric vs policy
-   - sensing metric vs policy
-   - learned action distribution
-
-### E. Hardware relevance clarification
-
-11. Is this project expected to remain a simulation study, or should it be designed with hardware deployment in mind?
-
-12. If hardware relevance matters, which assumptions are acceptable?
-   Ask specifically about:
-   - repeated pilot symbols across consecutive OFDM symbols
-   - flat block fading within a frame
-   - frame-level action updates
-   - measurable sensing metric available in a real receiver
-
-13. Is the DQN itself important, or is the main goal to demonstrate adaptive pilot/power control under the paper's model?
-
-## 7. Suggested Short Version to Send
-
-If a shorter message is needed, the following version can be sent:
+If a short message is needed, use this:
 
 ---
 
-I have implemented the paper framework in simulation, but I need clarification on the parts that are not numerically specified in the manuscript.
+I have the proof-of-concept implementation working, and most modeling choices are already fixed. I only need confirmation on the remaining final-report decisions:
 
-1. What exact environment parameters should I use for `K`, `N`, SNR/noise variance, CFO drift, channel correlation, and episode length?
-2. What exact observable sensing metric should be used for `S_t`?
-3. Should the reward terms be used raw, or normalized before applying `lambda_1`, `lambda_2`, and `lambda_3`?
-4. How should the reward weights be chosen?
-5. What baselines should I compare the DQN against?
-6. Is the expected outcome a simulation-only study, or should the design be kept hardware-plausible?
+1. How should the reward weights `lambda_1`, `lambda_2`, and `lambda_3` be selected?
+   Should we prioritize smooth settling of the reward-vs-episodes curve, final reward, baseline comparison, or a hybrid rule?
 
-Also, if there is a specific numerical setup or benchmark configuration you want followed, please share it so I do not invent assumptions that deviate from the intended model.
+2. Is the current observable SINR term acceptable?
+   The implementation uses a measurable proxy derived from the synchronization mismatch, pilot power, noise variance, and estimated channel power, rather than an exact hidden-state SINR.
+
+3. Is the current empirical sensing metric acceptable as the final `S_t`?
+   Right now it is implemented as mean sidelobe power divided by correlation-peak power.
+
+4. Should CRLB-based sensing appear anywhere in the final report, or should the report stay with the observable sensing metric only?
 
 ---
 
-## 8. Recommended Next Step After Clarification
+## 5. Bottom Line
 
-Once the professor answers the questions above, the implementation should be updated in this order:
+This file used to be broader, but most of those earlier questions have already been resolved.
 
-1. lock the environment parameters to the approved values
-2. replace the sensing proxy if the professor specifies a different `S_t`
-3. revise the reward if normalization or different weights are required
-4. add baseline policies
-5. run multi-seed experiments and compare results
+The only major issues still needing confirmation are:
 
-## 9. Final Critical Summary
-
-The current implementation is best described as:
-
-- structurally faithful to the paper's control framework
-- numerically plausible
-- suitable for simulation prototyping
-- not yet validated as the exact intended experimental setup
-
-The biggest unresolved issues are:
-
-- the exact sensing metric
-- the exact environment parameters
-- the scientific justification for reward weighting
-- the expected evaluation baselines
+1. reward-weight selection rule
+2. observable SINR term
+3. final wording and role of the sensing metric

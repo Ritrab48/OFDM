@@ -1,5 +1,7 @@
 # OFDM-ISAC Reference Implementation
 
+Start with `PROJECT_HANDOFF.md` if you are new to the repository and need the full project context.
+
 This repository now includes a runnable reference implementation of the model described in [REFERENCE_MODEL_FINAL.md](REFERENCE_MODEL_FINAL.md). The code is intentionally pure standard-library Python so it runs without extra package installation.
 
 The implementation covers:
