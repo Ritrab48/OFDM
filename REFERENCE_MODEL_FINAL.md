@@ -73,12 +73,12 @@ This metric captures the residual phase inconsistency after CFO compensation and
 ### 3.1 Residual CFO and ICI Power
 The inter-carrier interference (ICI) power caused by residual CFO can be approximated as:
 
-$$\sigma^2_{\mathrm{ICI},t} \approx C \cdot \tilde{\epsilon}_t^2 P |H_t|^2 \quad (8)$$
+$$\sigma^2_{\mathrm{ICI},t} \approx C \cdot \tilde{\epsilon}_t^2 (1-\beta_t)P |H_t|^2 \quad (8)$$
 
 where $C \approx \dfrac{\pi^2}{3 (\Delta f)^2}$ is a proportionality constant.
 
 **Explanation:**
-Residual CFO after estimation introduces imperfect orthogonality among subcarriers. The scaling by total transmit power $P$ and the channel gain $|H_t|^2$ is critical, as self-interference from all subcarriers propagates through the exact same fading channel as the desired signal.
+Residual CFO after estimation introduces imperfect orthogonality among subcarriers. Assuming guard subcarriers (nulls) are placed around the pilot subcarriers, pilot energy leakage into data subcarriers is negligible. Thus, the self-interference experienced by data subcarriers is generated predominantly by the other data subcarriers, scaling with the data transmit power $(1-\beta_t)P$ and the channel gain $|H_t|^2$.
 
 ### 3.2 Achievable Data Rate
 The effective SINR at frame $t$ is:
