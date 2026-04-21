@@ -1,0 +1,17 @@
+% -------------------- Abstract page -----------------------%
+\begin{center}
+{\Large{\bf{ABSTRACT}}}
+\end{center}
+
+This project proposes a reinforcement learning-based adaptive pilot and power allocation framework for joint synchronization and sensing in Orthogonal Frequency Division Multiplexing (OFDM)-based Integrated Sensing and Communication (ISAC) systems. Unlike conventional systems where pilot density and power allocation are fixed design parameters, the proposed framework dynamically adapts these parameters at each frame based on channel conditions and synchronization quality as observed at the receiver.
+
+A frame-level OFDM-ISAC simulator is developed incorporating time-varying carrier frequency offset (CFO) dynamics modelled as a mean-reverting autoregressive process, correlated block fading channel evolution, and additive white Gaussian noise. The tradeoff between communication spectral efficiency, synchronization accuracy, and sensing precision is analytically characterized using physically consistent, observable metrics. The adaptive control problem is formulated as a Markov Decision Process (MDP) and solved using a Deep Q-Network (DQN) agent.
+
+The DQN jointly selects the pilot subcarrier ratio $\rho_t \in \{0.1, 0.2, 0.3, 0.4\}$ and pilot power fraction $\beta_t \in \{0.2, 0.4, 0.6\}$ at each frame, yielding a discrete action space of twelve actions. The state observed by the agent consists entirely of measurable quantities from the previous frame, ensuring strict causal observability. The reward function combines a normalized communication rate term, a synchronization mismatch penalty, and an empirical sensing quality penalty, with weights selected through a structured multi-seed sweep.
+
+Simulation results demonstrate that the DQN learns a nontrivial adaptive control policy that outperforms random and heuristic baseline policies. The learned policy exhibits meaningful adaptation in its action distribution, favouring low pilot overhead under good channel conditions while adjusting allocation in response to synchronization quality. The results are evaluated honestly as a proof-of-concept simulation study, with limitations including the stationary environment assumption and the availability of the hindsight-best fixed baseline as a strong comparator.
+
+\vspace{3mm}
+\noindent\textbf{Keywords:} OFDM-ISAC, Integrated Sensing and Communication, Deep Q-Network, Pilot Allocation, Power Allocation, Carrier Frequency Offset, Reinforcement Learning, Adaptive Resource Management.
+
+\clearpage

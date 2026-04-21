@@ -1,0 +1,48 @@
+\chapter{Literature Survey}
+
+\section{OFDM Systems and Pilot Design}
+
+OFDM has been the dominant waveform in modern wireless standards including LTE, 5G NR, and Wi-Fi due to its efficient handling of frequency-selective channels through the cyclic prefix and subcarrier orthogonality~\cite{proakis2008digital}. A critical component of any OFDM receiver is channel estimation, which relies on pilot subcarriers whose positions and power levels are known to the receiver. Early work by Coleri et al.~\cite{coleri2002channel} established fundamental pilot-aided channel estimation techniques including least-squares and MMSE estimators for block-fading and comb-type pilot arrangements.
+
+Carrier frequency offset (CFO) is a persistent impairment in OFDM systems arising from oscillator mismatches between transmitter and receiver. Moose~\cite{moose1994technique} introduced the widely adopted phase-difference CFO estimator, which exploits the repetitive structure of consecutive pilot symbols to extract frequency offset from received phase rotations. This estimator forms the basis of the synchronization procedure in our proposed system model.
+
+The allocation of pilot subcarriers involves a fundamental tradeoff: more pilots improve estimation accuracy but reduce spectral efficiency by occupying subcarriers that could otherwise carry data. Most existing work treats pilot density as a fixed design parameter, with allocation optimized offline for a given channel model. Adaptive pilot allocation that responds to changing channel conditions in real time has received comparatively limited attention.
+
+\section{Integrated Sensing and Communication}
+
+ISAC has emerged as a central topic in beyond-5G wireless research, driven by the vision of a dual-function system that performs radar-like sensing alongside conventional communications using the same hardware and spectrum~\cite{sturm2011waveform}. The fundamental insight is that signals designed for communications already carry the temporal and spectral structure needed for delay-Doppler sensing, provided the waveform and pilot placement are designed appropriately.
+
+Liu et al.~\cite{liu2022integrated} provided a comprehensive overview of ISAC system architectures, highlighting the tension between communication and sensing objectives in waveform design. A key challenge in OFDM-ISAC is that pilot subcarriers serve a dual role: they enable channel estimation for data decoding and simultaneously provide the structured signal component needed for delay estimation in sensing. This dual role makes the pilot allocation decision more consequential than in a communications-only system.
+
+Existing ISAC pilot design work largely focuses on static optimization: given a fixed channel model, what pilot pattern and power allocation maximizes a joint communication-sensing utility? Adaptive approaches that close the loop in real time using measurements from the received signal are far less explored, particularly with reinforcement learning.
+
+\section{Reinforcement Learning for Wireless Resource Management}
+
+Reinforcement learning (RL) has been applied to a wide range of wireless resource management problems including power control, channel access, beamforming, and scheduling~\cite{luong2019applications}. The key advantage of RL over model-based optimization is its ability to operate without an explicit mathematical model of the environment dynamics, learning a policy directly from observed rewards.
+
+Deep Q-Networks, introduced by Mnih et al.~\cite{mnih2015human}, extended tabular Q-learning to continuous and high-dimensional state spaces by approximating the action-value function with a deep neural network. Experience replay and target networks were identified as critical stabilization mechanisms that prevent the divergence commonly observed in early neural network Q-learning attempts. DQN has since been applied to resource allocation in wireless systems~\cite{luong2019applications}, including problems with continuous channel state observations and discrete action spaces analogous to our pilot allocation setting.
+
+The standard DQN formulation assumes that the state is a sufficient statistic for the optimal policy. In the wireless resource management setting, this requires careful selection of observable state variables that capture the relevant channel and interference conditions without relying on quantities that are not available at the receiver in real time.
+
+\section{Research Gap}
+
+The following gap motivates the present work:
+\begin{itemize}
+    \item Existing OFDM-ISAC pilot design work optimizes offline for fixed channel conditions. Real-time adaptive allocation using closed-loop receiver measurements has not been widely studied.
+    \item RL-based resource management in wireless systems has focused primarily on power control and scheduling. Joint pilot ratio and pilot power adaptation in OFDM-ISAC using DQN has not been investigated.
+    \item Observable, receiver-computable synchronization and sensing metrics suitable for use as RL state and reward variables have not been systematically derived in the ISAC context.
+\end{itemize}
+
+\section{Objectives}
+
+Based on the identified research gap, the objectives of this project are:
+\begin{itemize}
+    \item To develop a frame-level OFDM-ISAC simulation environment with realistic CFO and channel dynamics and fully observable state metrics.
+    \item To formulate the joint pilot ratio and pilot power allocation problem as an MDP solvable by DQN.
+    \item To design a physically consistent reward function that captures the communication-synchronization-sensing tradeoff using only observable quantities.
+    \item To demonstrate that a DQN agent can learn a nontrivial adaptive policy and compare its performance against fixed and simple adaptive baselines.
+\end{itemize}
+
+\section{Key Contributions with Respect to Existing Work}
+
+The proposed system advances the state of the art in the following specific ways. First, the CFO is modelled as a mean-reverting autoregressive process rather than a static offset, introducing realistic temporal dynamics that motivate adaptive control. Second, all state and reward variables are derived strictly from receiver-observable quantities, ensuring the formulation is causal and practically implementable. Third, the empirical sensing metric is computed from the pilot-domain delay-correlation profile, making it directly measurable without access to ground-truth channel or delay parameters. Fourth, the reward-weight selection is performed through a structured multi-seed stability-aware sweep rather than ad hoc tuning, providing a reproducible and defensible methodology.
