@@ -1,0 +1,71 @@
+\chapter{Simulation and Training Hyperparameters}
+\label{app:params}
+
+Table~\ref{tab:params} lists all physical-layer and DQN hyperparameters used across every experiment reported in this thesis. Values are fixed unless explicitly stated otherwise in the text.
+
+\begin{table}[!h]
+    \centering
+    \caption{Complete simulation and training hyperparameter table.}
+    \label{tab:params}
+    \begin{tabular}{lll}
+        \toprule
+        Parameter & Symbol & Value \\
+        \midrule
+        \multicolumn{3}{l}{\textit{Physical-layer parameters}} \\
+        Number of subcarriers & $K$ & 40 \\
+        Number of OFDM symbols per frame & $N$ & 8 \\
+        Average transmit power & $P$ & 1.0 \\
+        Noise variance & $\sigma^2$ & 0.05 \\
+        OFDM symbol duration & $T_s$ & $66.67\,\mu$s \\
+        Subcarrier spacing & $\Delta f$ & 15\,kHz \\
+        CFO mean-reversion coefficient & $\alpha_c$ & 0.95 \\
+        CFO innovation standard deviation & $\sigma_\nu$ & 5\,Hz \\
+        Channel temporal correlation & $\alpha$ & 0.98 \\
+        ICI proportionality constant & $C$ & $\pi^2/(3\Delta f^2)$ \\
+        Sensing delay grid size & -- & 41 bins \\
+        Maximum delay & $\tau_{\max}$ & $3.0\,\mu$s \\
+        Target delay & $\tau_0$ & $1.2\,\mu$s \\
+        Sensing metric mode & -- & empirical \\[4pt]
+        \multicolumn{3}{l}{\textit{Action space}} \\
+        Pilot ratio options & $\rho$ & $\{0.1, 0.2, 0.3, 0.4\}$ \\
+        Pilot power fraction options & $\beta$ & $\{0.2, 0.4, 0.6\}$ \\
+        Total action space size & $|\mathcal{A}|$ & 12 \\
+        Default pilot ratio (initial state) & $\rho_{-1}$ & 0.2 \\
+        Default pilot power fraction (initial state) & $\beta_{-1}$ & 0.4 \\[4pt]
+        \multicolumn{3}{l}{\textit{Reward normalization}} \\
+        Rate reference (denominator) & $R_{\max}$ & $\approx 3.68$ bits/s/Hz \\
+        Sync reference (denominator) & -- & $2\sigma^2 = 0.10$ \\
+        Sensing reference (denominator) & -- & 1.0 \\
+        Rate weight & $\lambda_{\text{rate}}$ & 1.0 \\
+        Sync weight & $\lambda_{\text{sync}}$ & 0.2 \\
+        Sensing weight & $\lambda_{\text{sensing}}$ & 0.4 \\[4pt]
+        \multicolumn{3}{l}{\textit{DQN architecture}} \\
+        Input dimension & -- & 7 \\
+        Hidden layer sizes & -- & $(48, 48)$ \\
+        Hidden activation & -- & ReLU \\
+        Output dimension & -- & 12 \\
+        Output activation & -- & Linear \\
+        Weight initialization & -- & Glorot uniform \\[4pt]
+        \multicolumn{3}{l}{\textit{Training hyperparameters}} \\
+        Total training episodes & -- & 100 \\
+        Frames per episode & $T$ & 64 \\
+        Evaluation episodes & -- & 5 \\
+        Replay buffer capacity & $N_{\text{replay}}$ & 4000 \\
+        Minibatch size & -- & 32 \\
+        Warmup steps (before training) & $N_{\text{warmup}}$ & 128 \\
+        Target network update interval & $N_{\text{target}}$ & 100 steps \\
+        Learning rate (Adam) & $\eta$ & $10^{-3}$ \\
+        Discount factor & $\gamma$ & 0.98 \\
+        Exploration start & $\varepsilon_{\text{start}}$ & 1.0 \\
+        Exploration end & $\varepsilon_{\text{end}}$ & 0.05 \\
+        Exploration decay steps & -- & 2000 \\
+        State clip value & -- & $\pm 10$ \\
+        Log feature scale & $c_{\log}$ & 5.0 \\
+        Channel power scale & $c_{\text{ch}}$ & 2.0 \\[4pt]
+        \multicolumn{3}{l}{\textit{Sweep and confirmation}} \\
+        Confirmation seeds & -- & $\{7, 17, 27, 37, 47\}$ \\
+        Stability window & -- & 20 episodes \\
+        Selection mode & -- & hybrid \\
+        \bottomrule
+    \end{tabular}
+\end{table}

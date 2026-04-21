@@ -1,0 +1,51 @@
+\chapter{Introduction}
+
+\section{Background}
+
+The rapid growth of wireless communication systems has led to an increasing demand for spectrum-efficient technologies that can simultaneously serve multiple functions. Orthogonal Frequency Division Multiplexing (OFDM) has become the waveform of choice in modern wireless standards due to its robustness against multipath fading, flexible subcarrier allocation, and compatibility with multiple-input multiple-output (MIMO) systems~\cite{proakis2008digital}. At the same time, radar sensing and wireless communication have traditionally been deployed as separate systems occupying distinct spectrum bands, leading to significant spectral inefficiency.
+
+Integrated Sensing and Communication (ISAC) is an emerging paradigm that addresses this inefficiency by enabling a single waveform and hardware platform to perform both communication and sensing simultaneously~\cite{sturm2011waveform, liu2022integrated}. OFDM-based ISAC is particularly attractive because the same pilot and data subcarriers used for channel estimation and data transmission can also carry delay-Doppler sensing information, allowing joint operation without fundamental architectural changes.
+
+\section{The Pilot Allocation Problem in OFDM-ISAC}
+
+In any OFDM system, a fraction of subcarriers and transmit power must be dedicated to pilot signals for channel estimation and synchronization. The pilot ratio $\rho_t$ determines how many subcarriers carry pilots, and the pilot power fraction $\beta_t$ controls how much of the total transmit power is allocated to those pilots. In conventional OFDM systems, these parameters are set once during system design and held fixed for the duration of operation.
+
+In an OFDM-ISAC system, the choice of $(\rho_t, \beta_t)$ creates a three-way tradeoff:
+\begin{itemize}
+    \item \textbf{Communication:} Fewer pilots ($\rho_t \downarrow$, $\beta_t \downarrow$) means more subcarriers and power available for data, improving spectral efficiency.
+    \item \textbf{Synchronization:} More pilots improve carrier frequency offset (CFO) estimation accuracy, reducing inter-carrier interference (ICI) and improving received signal quality.
+    \item \textbf{Sensing:} Pilot density and power jointly determine the signal-to-noise ratio in the pilot domain, which governs the precision of delay-domain sensing.
+\end{itemize}
+
+A fixed pilot design cannot optimally manage this tradeoff under varying channel conditions. When the channel is stable and the CFO is small, the system is over-spending on pilots at the cost of communication rate. When the channel undergoes rapid variation or the oscillator drifts significantly, fixed sparse pilots may be insufficient for reliable synchronization and sensing.
+
+\section{Motivation for Reinforcement Learning}
+
+Adaptive pilot allocation is a sequential decision-making problem: at each frame, the controller must choose $(\rho_t, \beta_t)$ based on observable measurements from the previous frame, without knowing the exact future channel or CFO trajectory. This structure maps naturally to a Markov Decision Process (MDP), for which Deep Q-Network (DQN) agents have demonstrated strong empirical performance across a wide range of control problems~\cite{mnih2015human}.
+
+The key advantage of the RL formulation is that it does not require an explicit model of the channel dynamics or CFO evolution. Instead, the agent learns by interacting with the environment and receiving scalar reward signals that encode the desired communication-synchronization-sensing tradeoff. This makes it particularly suitable for a proof-of-concept ISAC system where exact analytical optimization of the three-way tradeoff is intractable.
+
+\section{Contributions}
+
+The contributions of this project are as follows:
+\begin{enumerate}
+    \item A frame-level OFDM-ISAC simulator incorporating mean-reverting CFO dynamics, correlated block fading, and additive noise, with fully observable state variables.
+    \item A physically consistent CFO estimation procedure and an observable synchronization mismatch metric derived from received pilot signals.
+    \item An empirical sensing quality metric based on the sidelobe-to-peak ratio of the pilot-domain delay-correlation profile, which can be computed directly from receiver-side observations.
+    \item A DQN agent that jointly selects pilot ratio and pilot power fraction at each frame, trained via experience replay and a target network.
+    \item A structured reward-weight selection methodology using a multi-seed stability-aware sweep, yielding a final configuration with $\lambda_{\text{rate}} = 1.0$, $\lambda_{\text{sync}} = 0.2$, $\lambda_{\text{sensing}} = 0.4$.
+    \item Baseline comparisons against all twelve fixed policies, a random policy, and a heuristic policy, demonstrating that the DQN outperforms random and heuristic alternatives.
+\end{enumerate}
+
+\section{Organisation of the Report}
+
+The remainder of this report is organised as follows:
+\begin{itemize}
+    \item[(1)] Chapter~2 presents a survey of related work on OFDM pilot design, ISAC systems, and reinforcement learning for wireless resource management, identifying the research gap addressed by this project.
+    \item[(2)] Chapter~3 describes the mathematical system model, including the OFDM transmission model, channel and CFO dynamics, synchronization estimation, and sensing and communication performance metrics.
+    \item[(3)] Chapter~4 formulates the adaptive control problem as an MDP and describes the DQN-based solution, including the state and action space design, reward formulation, network architecture, and training algorithm.
+    \item[(4)] Chapter~5 presents simulation results, including the reward-weight selection sweep, training convergence analysis, and a comprehensive baseline comparison.
+    \item[(5)] Chapter~6 concludes the report, summarises the findings, acknowledges the limitations of the study, and outlines directions for future work.
+    \item[(6)] Appendix~A provides the full table of simulation and RL hyperparameters used in all experiments.
+    \item[(7)] Appendix~B provides a detailed explanation of the observable SINR proxy used as a state variable.
+\end{itemize}

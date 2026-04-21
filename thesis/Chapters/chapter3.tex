@@ -1,0 +1,134 @@
+\chapter{System Model}
+
+\section{OFDM-ISAC System Overview}
+
+We consider a single-input single-output (SISO) OFDM-based ISAC system operating in discrete time frames indexed by $t$. Each frame consists of $N$ OFDM symbols and $K$ subcarriers. The constant average transmit power per OFDM symbol is denoted $P$. The system dynamically allocates a fraction of subcarriers for pilot transmission and distributes transmit power between pilot and data symbols according to the adaptive control policy.
+
+% TODO: Insert system block diagram here
+% \begin{figure}[!t]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{figures/system_diagram.pdf}
+%     \caption{Block diagram of the OFDM-ISAC system with adaptive pilot allocation.}
+%     \label{fig:system}
+% \end{figure}
+
+\section{Pilot and Data Allocation}
+
+Let $\rho_t \in (0,1)$ denote the pilot ratio at frame $t$. The number of pilot subcarriers is:
+\begin{equation}
+    |\cP_t| = \rho_t K
+    \label{eq:pilot_count}
+\end{equation}
+The remaining $(1-\rho_t)K$ subcarriers carry data. The transmitted symbol at subcarrier $k$ and OFDM symbol index $n$ is:
+\begin{equation}
+    X_t[k,n] = \begin{cases}
+        \sqrt{\dfrac{\beta_t P}{\rho_t K}}\, s_p[k,n], & k \in \cP_t \\[10pt]
+        \sqrt{\dfrac{(1-\beta_t)P}{(1-\rho_t)K}}\, s_d[k,n], & k \in \cD_t
+    \end{cases}
+    \label{eq:tx_symbol}
+\end{equation}
+where $\beta_t \in (0,1)$ is the fraction of total power allocated to pilots, $s_p[k,n]$ and $s_d[k,n]$ are unit-power pilot and data symbols respectively, and $\cD_t$ denotes the data subcarrier index set. The scaling ensures that total pilot power equals $\beta_t P$ and total data power equals $(1-\beta_t)P$, satisfying the average power constraint at every frame.
+
+\section{Channel and Impairment Model}
+
+\subsection{Received Signal}
+
+The received signal at subcarrier $k$, symbol $n$, frame $t$ is modelled as:
+\begin{equation}
+    Y_t[k,n] = H_t X_t[k,n] e^{j2\pi\varepsilon_t n T_s} + W_t[k,n]
+    \label{eq:rx_signal}
+\end{equation}
+where $H_t$ is the block-fading channel response, assumed flat across subcarriers and constant over the frame duration; $\varepsilon_t$ is the carrier frequency offset (CFO) in Hertz; $T_s$ is the OFDM symbol duration; and $W_t[k,n] \sim \mathcal{CN}(0,\sigma^2)$ is additive white Gaussian noise. The exponential term represents the phase rotation induced by CFO across consecutive OFDM symbols.
+
+\subsection{CFO Dynamics}
+
+The CFO evolves as a mean-reverting autoregressive process:
+\begin{equation}
+    \varepsilon_{t+1} = \alpha_c \varepsilon_t + \nu_t, \quad |\alpha_c| < 1
+    \label{eq:cfo_dynamics}
+\end{equation}
+\begin{equation}
+    \nu_t \sim \mathcal{N}(0, \sigma_\nu^2)
+    \label{eq:cfo_noise}
+\end{equation}
+The parameter $\alpha_c$ ensures the CFO remains bounded in steady state, mimicking physical oscillator behaviour. The innovation term $\nu_t$ captures hardware drift between frames.
+
+\subsection{Channel Evolution}
+
+The block-fading channel evolves as a first-order autoregressive process:
+\begin{equation}
+    H_{t+1} = \alpha H_t + \sqrt{1-\alpha^2}\, z_t, \quad z_t \sim \mathcal{CN}(0,1)
+    \label{eq:channel_dynamics}
+\end{equation}
+where $\alpha$ determines temporal correlation. This model is consistent with Jake's fading for slowly varying channels.
+
+\section{Synchronization Estimation}
+
+\subsection{CFO Estimation}
+
+Under the assumption that pilot symbols are identical across consecutive OFDM symbols within a frame (i.e., $X_t[k,n+1] = X_t[k,n]$ for $k \in \cP_t$), the phase difference between consecutive received pilot symbols is dominated by the CFO-induced rotation. The least-squares CFO estimate is:
+\begin{equation}
+    \hat{\varepsilon}_t = \frac{1}{2\pi T_s} \cdot \frac{1}{|\cP_t|(N-1)} \sum_{k \in \cP_t} \sum_{n=1}^{N-1} \angle\!\left(\frac{Y_t[k,n+1]}{Y_t[k,n]}\right)
+    \label{eq:cfo_estimator}
+\end{equation}
+This averages over $|\cP_t|(N-1)$ consecutive symbol pairs, reducing noise-induced estimation variance. The denominator $N-1$ correctly accounts for the number of consecutive pairs in a frame of $N$ symbols.
+
+\subsection{Observable Synchronization Mismatch Metric}
+
+The true residual CFO $\tilde{\varepsilon}_t = \varepsilon_t - \hat{\varepsilon}_t$ is not directly observable at the receiver. We therefore define an observable surrogate metric based on the residual mismatch after applying the CFO estimate:
+\begin{equation}
+    \cE_t = \frac{1}{|\cP_t|(N-1)} \sum_{k \in \cP_t} \sum_{n=1}^{N-1} \left|Y_t[k,n+1] - Y_t[k,n]\, e^{j2\pi\hat{\varepsilon}_t T_s}\right|^2
+    \label{eq:sync_mismatch}
+\end{equation}
+This metric captures the residual phase inconsistency in the pilot domain after CFO compensation and can be computed directly from received pilot symbols without knowledge of the true channel or CFO.
+
+\section{Communication Performance}
+
+\subsection{Residual ICI Power}
+
+Imperfect CFO compensation leaves a residual offset $\tilde{\varepsilon}_t$ which introduces inter-carrier interference (ICI). The ICI power at data subcarriers is approximated as:
+\begin{equation}
+    \sigma^2_{\text{ICI},t} \approx C \cdot \tilde{\varepsilon}_t^2 \cdot (1-\beta_t)P \cdot |H_t|^2
+    \label{eq:ici_power}
+\end{equation}
+where $C = \pi^2 / (3\Delta f^2)$ is a proportionality constant and $\Delta f$ is the subcarrier spacing. The ICI scales with data power $(1-\beta_t)P$ because data subcarriers generate self-interference proportional to their own power.
+
+\subsection{SINR and Achievable Rate}
+
+The effective signal-to-interference-plus-noise ratio (SINR) at frame $t$ is:
+\begin{equation}
+    \text{SINR}_t = \frac{(1-\beta_t)P|H_t|^2}{\sigma^2 + \sigma^2_{\text{ICI},t}}
+    \label{eq:sinr}
+\end{equation}
+The normalised spectral efficiency (bits/s/Hz) is:
+\begin{equation}
+    R_t = (1-\rho_t)\log_2(1+\text{SINR}_t)
+    \label{eq:rate}
+\end{equation}
+The factor $(1-\rho_t)$ accounts for the fraction of subcarriers available for data.
+
+\section{Sensing Performance}
+
+\subsection{Pilot-Domain SNR}
+
+Sensing resolution depends on the effective pilot signal-to-noise ratio in the pilot domain:
+\begin{equation}
+    \text{SNR}_{\text{pilot},t} = \frac{\beta_t P |H_t|^2}{\rho_t K \sigma^2}
+    \label{eq:pilot_snr}
+\end{equation}
+
+\subsection{Empirical Sensing Metric}
+
+Rather than using a theoretical Cram\'{e}r-Rao Lower Bound (CRLB) — which is not directly observable during online operation — we define an empirical sensing quality metric $S_t$ derived from the sharpness of the delay-correlation profile computed from received pilots.
+
+Specifically, CFO-compensated channel estimates are formed at each pilot subcarrier, and the delay-correlation profile is computed over a grid of trial delay values $\{\tau'\}$:
+\begin{equation}
+    P(\tau') = \left|\sum_{k \in \cP_t} \hat{H}_t[k]\, e^{j2\pi f_k \tau'}\right|^2
+    \label{eq:delay_profile}
+\end{equation}
+where $f_k$ is the centre frequency of the $k$-th subcarrier and $\hat{H}_t[k]$ is the channel estimate at subcarrier $k$. The sensing metric is defined as the sidelobe-to-peak ratio:
+\begin{equation}
+    S_t = \frac{\overline{P}_{\text{side}}}{\max_{\tau'} P(\tau')}
+    \label{eq:sensing_metric}
+\end{equation}
+where $\overline{P}_{\text{side}}$ is the mean power of all delay bins excluding the peak. Lower $S_t$ indicates sharper delay resolution and better sensing quality. This metric is computable entirely from receiver-side observations.

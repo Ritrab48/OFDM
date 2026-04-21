@@ -1,0 +1,170 @@
+\chapter{DQN-Based Adaptive Pilot Allocation}
+
+\section{Problem Formulation as a Markov Decision Process}
+
+The adaptive pilot allocation task is formulated as a Markov Decision Process (MDP) defined by the tuple $(\cS, \cA, \mathcal{T}, r, \gamma)$, where $\cS$ is the state space, $\cA$ is the action space, $\mathcal{T}$ is the state transition kernel, $r$ is the reward function, and $\gamma \in (0,1)$ is the discount factor.
+
+\subsection{State Space}
+
+To preserve strict causality, the state is constructed entirely from receiver-observable measurements completed in the previous frame. The agent cannot observe the true channel $H_t$, the true CFO $\varepsilon_t$, or the true residual $\tilde{\varepsilon}_t$; it only has access to estimates and proxy metrics derived from received pilot symbols. The state vector at decision epoch $t$ is:
+\begin{equation}
+    s_t = \left(\hat{\varepsilon}_{t-1},\; \cE_{t-1},\; \overline{\text{SINR}}_{t-1},\; \overline{\text{SNR}}_{\text{pilot},t-1},\; |\hat{H}_{t-1}|^2,\; \rho_{t-1},\; \beta_{t-1}\right)
+    \label{eq:state_vector}
+\end{equation}
+The seven state components are:
+\begin{itemize}
+    \item $\hat{\varepsilon}_{t-1}$: CFO estimate from the previous frame (Eq.~\ref{eq:cfo_estimator}).
+    \item $\cE_{t-1}$: observable synchronization mismatch metric (Eq.~\ref{eq:sync_mismatch}).
+    \item $\overline{\text{SINR}}_{t-1}$: proxy SINR estimate computed from the channel power estimate and an inferred residual ICI term (derived in Appendix~B).
+    \item $\overline{\text{SNR}}_{\text{pilot},t-1}$: proxy pilot-domain SNR computed from the channel power estimate and the known pilot power (Eq.~\ref{eq:pilot_snr}).
+    \item $|\hat{H}_{t-1}|^2$: estimated channel power, averaged over pilot symbols after CFO compensation.
+    \item $\rho_{t-1}, \beta_{t-1}$: the pilot ratio and power fraction selected in the previous frame, which provide context for interpreting the observed metrics.
+\end{itemize}
+Including the previous actions $(\rho_{t-1}, \beta_{t-1})$ is important because the same synchronization mismatch value has a different implication depending on how many pilots were used: a low mismatch achieved with many pilots is less informative than the same mismatch achieved with few pilots.
+
+\subsection{Action Space}
+
+The control variables $\rho_t$ and $\beta_t$ are discretized to enable a standard DQN formulation with a fixed-size output layer. The discrete grids are:
+\begin{equation}
+    \rho_t \in \{0.1, 0.2, 0.3, 0.4\}, \quad \beta_t \in \{0.2, 0.4, 0.6\}
+    \label{eq:action_space}
+\end{equation}
+yielding a joint action space of $|\cA| = 4 \times 3 = 12$ actions, each corresponding to a specific $(\rho_t, \beta_t)$ pair. This resolution covers the range from aggressively data-centric ($\rho=0.1, \beta=0.2$) to pilot-heavy ($\rho=0.4, \beta=0.6$) configurations.
+
+\subsection{Reward Function}
+
+The instantaneous reward at frame $t$ combines three normalized terms:
+\begin{equation}
+    r_t = \lambda_{\text{rate}}\, \tilde{R}_t - \lambda_{\text{sync}}\, \tilde{\cE}_t - \lambda_{\text{sensing}}\, \tilde{S}_t
+    \label{eq:reward}
+\end{equation}
+where $\tilde{R}_t = R_t / R_{\max}$, $\tilde{\cE}_t = \cE_t / (2\sigma^2)$, and $\tilde{S}_t = S_t$ are normalized versions of the rate, synchronization mismatch, and sensing metric respectively. The normalization constants are:
+\begin{itemize}
+    \item $R_{\max} = (1-\rho_{\min})\log_2\!\left(1 + \frac{(1-\beta_{\min})P}{\sigma^2}\right) \approx 3.68$ bits/s/Hz, the maximum achievable rate at the lowest pilot overhead and zero ICI.
+    \item $2\sigma^2$ is the theoretical floor of the synchronization mismatch metric under perfect CFO correction (noise-only regime).
+    \item The sensing metric $S_t \in [0,1]$ is already a ratio and requires no additional normalization.
+\end{itemize}
+The objective is to find a policy $\pi: \cS \to \cA$ that maximizes the expected discounted cumulative reward:
+\begin{equation}
+    \max_\pi\; \mathbb{E}\!\left[\sum_{t=0}^{T-1} \gamma^t r_t \;\Big|\; s_0\right]
+    \label{eq:mdp_objective}
+\end{equation}
+The weights $(\lambda_{\text{rate}}, \lambda_{\text{sync}}, \lambda_{\text{sensing}})$ govern the relative importance of each objective and are selected through the methodology described in Section~\ref{sec:sweep}.
+
+\subsection{State Transition}
+
+The environment transition is determined by the CFO dynamics (Eq.~\ref{eq:cfo_dynamics}) and channel dynamics (Eq.~\ref{eq:channel_dynamics}). These processes satisfy the Markov property: the joint process $(H_t, \varepsilon_t)$ is first-order Markov, so $s_{t+1}$ is conditionally independent of $s_0, \ldots, s_{t-1}$ given $s_t$ and $a_t$. The MDP formulation is therefore valid under these dynamics.
+
+\section{Deep Q-Network Solution}
+
+\subsection{Action-Value Function}
+
+The optimal policy is characterized by the action-value function $Q^*(s, a)$, which gives the expected discounted return when taking action $a$ in state $s$ and following the optimal policy thereafter. It satisfies the Bellman optimality equation:
+\begin{equation}
+    Q^*(s_t, a_t) = \mathbb{E}\!\left[r_t + \gamma \max_{a'} Q^*(s_{t+1}, a') \;\Big|\; s_t, a_t\right]
+    \label{eq:bellman}
+\end{equation}
+
+\subsection{Neural Network Approximation and Loss}
+
+Because the state space is continuous and seven-dimensional, tabular Q-learning is impractical. We approximate $Q(s,a;\theta)$ using a multilayer perceptron (MLP) parameterized by weights $\theta$. The network is trained by minimizing the mean-squared Bellman error over minibatches sampled from an experience replay buffer $\mathcal{D}$:
+\begin{equation}
+    L(\theta) = \mathbb{E}_{(s_t, a_t, r_t, s_{t+1}) \sim \mathcal{D}}\!\left[\left(y_t - Q(s_t, a_t;\theta)\right)^2\right]
+    \label{eq:dqn_loss}
+\end{equation}
+where the target value $y_t$ is computed using a periodically frozen copy of the network, the target network $\theta^{-}$:
+\begin{equation}
+    y_t = r_t + \gamma \max_{a'} Q(s_{t+1}, a';\theta^{-})
+    \label{eq:dqn_target}
+\end{equation}
+Decoupling the target computation from the main network prevents the oscillation and divergence that occurs when both the prediction and the target move simultaneously during gradient updates~\cite{mnih2015human}.
+
+\subsection{Network Architecture}
+
+The Q-network is a fully-connected MLP with the following architecture:
+\begin{itemize}
+    \item \textbf{Input layer:} 7 neurons (one per encoded state feature).
+    \item \textbf{Hidden layers:} Two layers of 48 neurons each with ReLU activation.
+    \item \textbf{Output layer:} 12 neurons (one per action), linear activation.
+\end{itemize}
+Weights are initialized with Glorot uniform initialization~\cite{sutton2018reinforcement} and biases are set to zero. The Adam optimizer is used with a learning rate of $10^{-3}$ and standard momentum parameters ($\beta_1 = 0.9$, $\beta_2 = 0.999$). The network is implemented in pure Python without external deep learning libraries.
+
+\section{State Encoding}
+
+Raw state variables span different numerical scales: the CFO estimate is in Hz, the sync mismatch is a power quantity, and SINR is a linear ratio that may exceed 10. Direct use of unscaled inputs slows learning and can cause large gradient magnitudes early in training. The encode\_state procedure maps the raw state $s_t$ to a normalized feature vector $\phi_t$:
+\begin{align}
+    \phi_1 &= \hat{\varepsilon}_{t-1} / (\Delta f / 4) \label{eq:enc_cfo}\\
+    \phi_2 &= \cE_{t-1} / \sigma^2 \label{eq:enc_mismatch}\\
+    \phi_3 &= \ln(1 + \overline{\text{SINR}}_{t-1}) / c_{\log} \label{eq:enc_sinr}\\
+    \phi_4 &= \ln(1 + \overline{\text{SNR}}_{\text{pilot},t-1}) / c_{\log} \label{eq:enc_psnr}\\
+    \phi_5 &= |\hat{H}_{t-1}|^2 / c_{\text{ch}} \label{eq:enc_chpow}\\
+    \phi_6 &= \rho_{t-1} \label{eq:enc_rho}\\
+    \phi_7 &= \beta_{t-1} \label{eq:enc_beta}
+\end{align}
+where $c_{\log} = 5.0$ is the logarithmic feature scale, $c_{\text{ch}} = 2.0$ is the channel power scale, and $\Delta f = 15\,\text{kHz}$ is the subcarrier spacing. All features are clipped to $[-10, 10]$ after encoding. The logarithmic transform on SINR and pilot-SNR compresses the dynamic range of positive-definite quantities while preserving monotonicity.
+
+\section{Training Algorithm}
+
+Algorithm~\ref{alg:dqn} presents the full DQN training procedure.
+
+\begin{algorithm}[!t]
+\caption{DQN-Based Adaptive Pilot and Power Allocation}
+\label{alg:dqn}
+\begin{algorithmic}[1]
+\State Initialize replay memory $\mathcal{D}$ with capacity $N_{\text{replay}}$
+\State Initialize Q-network $Q(\cdot;\theta)$ with Glorot weights
+\State Initialize target network $Q(\cdot;\theta^{-}) \leftarrow Q(\cdot;\theta)$
+\State Set $\varepsilon_{\text{explore}} \leftarrow \varepsilon_{\text{start}}$
+\For{each training episode}
+    \State Initialize state $s_0$ with zero metrics and default actions $(\rho_{-1}{=}0.2, \beta_{-1}{=}0.4)$
+    \For{each frame $t = 0, 1, \ldots, T-1$}
+        \State Encode state: $\phi_t \leftarrow \text{encode}(s_t)$
+        \State With probability $\varepsilon_{\text{explore}}$: select random $a_t \in \cA$
+        \State Otherwise: $a_t \leftarrow \arg\max_{a} Q(\phi_t, a; \theta)$
+        \State Execute $a_t = (\rho_t, \beta_t)$: format and transmit OFDM frame
+        \State Receive pilot observations $Y_t[k,n]$, $k \in \cP_t$
+        \State Compute $\hat{\varepsilon}_t$, $\cE_t$, channel power, SINR proxy, $S_t$
+        \State Compute reward $r_t$ via Eq.~(\ref{eq:reward})
+        \State Construct $s_{t+1}$ from frame-$t$ measurements
+        \State Store $(\phi_t, a_t, r_t, \phi_{t+1})$ in $\mathcal{D}$
+        \State Decay $\varepsilon_{\text{explore}}$ linearly towards $\varepsilon_{\text{end}}$
+        \If{$|\mathcal{D}| \geq N_{\text{warmup}}$}
+            \State Sample minibatch $\mathcal{B}$ from $\mathcal{D}$
+            \State Compute targets: $y_t = r_t + \gamma \max_{a'} Q(s_{t+1}, a'; \theta^{-})$
+            \State Update $\theta$ via Adam gradient step on $L(\theta)$
+        \EndIf
+        \If{$\text{total\_steps} \bmod N_{\text{target}} = 0$}
+            \State $\theta^{-} \leftarrow \theta$
+        \EndIf
+    \EndFor
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+Key algorithmic choices follow established DQN practice~\cite{mnih2015human}: the experience replay buffer breaks the temporal correlation between consecutive transitions; the target network provides stable regression targets; and $\varepsilon$-greedy exploration decays linearly from 1.0 to 0.05 over the first 2000 steps to balance exploration against exploitation.
+
+\section{Reward-Weight Selection Methodology}
+\label{sec:sweep}
+
+The reward weights $(\lambda_{\text{rate}}, \lambda_{\text{sync}}, \lambda_{\text{sensing}})$ are not derivable analytically; they require empirical tuning. We adopt a structured multi-seed stability-aware selection procedure to avoid ad hoc choices.
+
+A grid of candidate weight combinations is evaluated. For each candidate, five independent training runs are performed with different random seeds. The per-candidate DQN reward statistics are aggregated across seeds, and a hybrid selection score is computed as:
+\begin{equation}
+    \text{score} = \text{stability\_score} \times \text{baseline\_gap\_factor}
+    \label{eq:hybrid_score}
+\end{equation}
+where:
+\begin{equation}
+    \text{stability\_score} = \frac{\bar{r}_{\text{final}}}{\displaystyle 1 + \sigma_{\text{final}} + |\hat{m}| + \bar{\delta}}
+    \label{eq:stability_score}
+\end{equation}
+with $\bar{r}_{\text{final}}$ the mean reward over the final 20 episodes, $\sigma_{\text{final}}$ the standard deviation, $|\hat{m}|$ the absolute value of the linear trend slope, and $\bar{\delta}$ the mean absolute step-to-step change in episode reward. This formulation penalizes configurations whose reward is noisy, drifting, or oscillating in the final training phase.
+
+The baseline gap factor is:
+\begin{equation}
+    \text{baseline\_gap\_factor} = 1 - \frac{|\Delta_{\text{gap}}|}{1 + |\Delta_{\text{gap}}|}
+    \label{eq:gap_factor}
+\end{equation}
+where $\Delta_{\text{gap}}$ is the mean gap between DQN reward and the best fixed policy reward. This term prevents selecting configurations where the DQN drastically underperforms the simplest fixed baseline, even if they happen to be stable.
+
+The candidate weight combinations evaluated in the final confirmation phase, along with the winner, are described in Chapter~\ref{ch:results}.

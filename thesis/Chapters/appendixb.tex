@@ -1,0 +1,56 @@
+\chapter{Observable SINR Proxy Derivation}
+\label{app:sinr_proxy}
+
+\section{The Observability Constraint}
+
+The true SINR at frame $t$ is defined in Eq.~(\ref{eq:sinr}) as:
+\[
+    \text{SINR}_t = \frac{(1-\beta_t)P|H_t|^2}{\sigma^2 + \sigma^2_{\text{ICI},t}}
+\]
+This expression depends on the true channel gain $|H_t|^2$ and the true residual ICI power $\sigma^2_{\text{ICI},t} = C\tilde{\varepsilon}_t^2(1-\beta_t)P|H_t|^2$, neither of which is directly observable at the receiver. Only the received signal $Y_t[k,n]$ is available. The RL state must therefore use proxy quantities computable from $Y_t$.
+
+\section{Step 1: Channel Power Estimation}
+
+After computing the CFO estimate $\hat{\varepsilon}_t$, the receiver applies phase compensation to each received pilot symbol and averages to obtain an estimate of the channel power:
+\[
+    |\hat{H}_t|^2 = \frac{1}{|\cP_t| N} \sum_{k \in \cP_t} \sum_{n=0}^{N-1} \left|\frac{Y_t[k,n]\, e^{-j2\pi\hat{\varepsilon}_t n T_s}}{\sqrt{\beta_t P / (\rho_t K)}}\right|^2
+\]
+Dividing by the pilot amplitude $\sqrt{\beta_t P / (\rho_t K)}$ removes the known scaling, leaving a noisy estimate of $|H_t|^2$. The expectation of this quantity under moderate SNR is approximately:
+\[
+    \mathbb{E}\!\left[|\hat{H}_t|^2\right] \approx |H_t|^2 + \frac{\sigma^2}{\beta_t P / (\rho_t K)}
+\]
+i.e., the true channel power plus a bias term due to noise. This estimate is used as state variable $\phi_5$.
+
+\section{Step 2: Residual CFO Power Estimation}
+
+The synchronization mismatch metric $\cE_t$ (Eq.~\ref{eq:sync_mismatch}) averages the squared residual between consecutive pilot pairs after CFO compensation. Under the small-angle approximation, when the residual CFO $\tilde{\varepsilon}_t = \varepsilon_t - \hat{\varepsilon}_t$ is small, the dominant contribution to $\cE_t$ is:
+\[
+    \cE_t \approx (2\pi T_s)^2 \tilde{\varepsilon}_t^2 \cdot \frac{\beta_t P}{\rho_t K} \cdot |H_t|^2 + 2\sigma^2
+\]
+The term $2\sigma^2$ is the noise floor (two noise samples per pair). Rearranging, an estimate of the residual CFO power $\tilde{\varepsilon}_t^2$ can be extracted:
+\[
+    \widehat{\tilde{\varepsilon}_t^2} = \frac{\max(0,\;\cE_t - 2\sigma^2)}{(2\pi T_s)^2 \cdot (\beta_t P / |\cP_t|) \cdot |\hat{H}_t|^2}
+\]
+where $|\cP_t| = \rho_t K$ is the number of pilot subcarriers. The $\max(0, \cdot)$ clamp prevents negative estimates in the noise-dominated regime.
+
+\section{Step 3: Proxy ICI Power}
+
+Substituting $\widehat{\tilde{\varepsilon}_t^2}$ and $|\hat{H}_t|^2$ into the ICI approximation (Eq.~\ref{eq:ici_power}) yields an observable proxy for the ICI power:
+\[
+    \hat{\sigma}^2_{\text{ICI},t} = C \cdot \widehat{\tilde{\varepsilon}_t^2} \cdot (1-\beta_t)P \cdot |\hat{H}_t|^2
+\]
+
+\section{Step 4: Proxy SINR}
+
+The observable proxy SINR used as state variable $\phi_3$ is:
+\begin{equation}
+    \overline{\text{SINR}}_t = \frac{(1-\beta_t)P\,|\hat{H}_t|^2}{\sigma^2 + \hat{\sigma}^2_{\text{ICI},t}}
+    \label{eq:sinr_proxy}
+\end{equation}
+This quantity is computable entirely from receiver-side observations: $\cE_t$, $|\hat{H}_t|^2$, $\hat{\varepsilon}_t$, and the known system parameters $(\sigma^2, P, \beta_t, \rho_t, T_s, C)$.
+
+\section{Interpretation}
+
+The proxy SINR is an approximation, not the true SINR. Under good synchronization (small $\tilde{\varepsilon}_t$), $\cE_t \approx 2\sigma^2$ and $\widehat{\tilde{\varepsilon}_t^2} \approx 0$, so $\overline{\text{SINR}}_t \approx (1-\beta_t)P|\hat{H}_t|^2/\sigma^2$, the noise-limited SINR. Under poor synchronization, the ICI term inflates the denominator, reducing the proxy SINR. This means $\overline{\text{SINR}}_t$ correctly reflects both the channel quality and the current synchronization state, making it a meaningful state feature for the DQN.
+
+Similarly, the proxy pilot SNR $\overline{\text{SNR}}_{\text{pilot},t} = \beta_t P |\hat{H}_t|^2 / (\rho_t K \sigma^2)$ follows directly from the same channel power estimate and provides complementary information about sensing performance.
