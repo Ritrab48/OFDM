@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+<rect width="100%" height="100%" fill="white"/>
+<text x="480.0" y="28" font-size="20" text-anchor="middle" font-family="sans-serif">Policy Comparison: Average Reward</text>
+<line x1="80" y1="48" x2="80" y2="412" stroke="#333" stroke-width="1.5"/>
+<line x1="80" y1="412" x2="936" y2="412" stroke="#333" stroke-width="1.5"/>
+<text x="22" y="270.0" font-size="14" text-anchor="middle" transform="rotate(-90, 22, 270.0)" font-family="sans-serif">Average Reward</text>
+<line x1="80" y1="48.0" x2="936" y2="48.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="52.0" font-size="12" text-anchor="end" font-family="sans-serif">40.2</text>
+<line x1="80" y1="139.0" x2="936" y2="139.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="143.0" font-size="12" text-anchor="end" font-family="sans-serif">29.7</text>
+<line x1="80" y1="230.0" x2="936" y2="230.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="234.0" font-size="12" text-anchor="end" font-family="sans-serif">19.1</text>
+<line x1="80" y1="321.0" x2="936" y2="321.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="325.0" font-size="12" text-anchor="end" font-family="sans-serif">8.61</text>
+<line x1="80" y1="412.0" x2="936" y2="412.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="416.0" font-size="12" text-anchor="end" font-family="sans-serif">-1.91</text>
+<rect x="88.56" y="64.55" width="39.95" height="330.91" fill="#0b5fff" opacity="0.85"/>
+<text x="108.53" y="58.55" font-size="12" text-anchor="middle" font-family="sans-serif">38.3</text>
+<text x="108.53" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 108.53, 428.00)" font-family="sans-serif">fixed_rho=0.1_beta=0.2</text>
+<rect x="145.63" y="73.10" width="39.95" height="322.35" fill="#ff6b00" opacity="0.85"/>
+<text x="165.60" y="67.10" font-size="12" text-anchor="middle" font-family="sans-serif">37.3</text>
+<text x="165.60" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 165.60, 428.00)" font-family="sans-serif">fixed_rho=0.2_beta=0.2</text>
+<rect x="202.69" y="106.14" width="39.95" height="289.32" fill="#00a37a" opacity="0.85"/>
+<text x="222.67" y="100.14" font-size="12" text-anchor="middle" font-family="sans-serif">33.5</text>
+<text x="222.67" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 222.67, 428.00)" font-family="sans-serif">fixed_rho=0.3_beta=0.2</text>
+<rect x="259.76" y="145.99" width="39.95" height="249.47" fill="#d13b40" opacity="0.85"/>
+<text x="279.73" y="139.99" font-size="12" text-anchor="middle" font-family="sans-serif">28.8</text>
+<text x="279.73" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 279.73, 428.00)" font-family="sans-serif">dqn</text>
+<rect x="316.83" y="158.85" width="39.95" height="236.61" fill="#7c4dff" opacity="0.85"/>
+<text x="336.80" y="152.85" font-size="12" text-anchor="middle" font-family="sans-serif">27.4</text>
+<text x="336.80" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 336.80, 428.00)" font-family="sans-serif">fixed_rho=0.1_beta=0.4</text>
+<rect x="373.89" y="168.81" width="39.95" height="226.64" fill="#b68a00" opacity="0.85"/>
+<text x="393.87" y="162.81" font-size="12" text-anchor="middle" font-family="sans-serif">26.2</text>
+<text x="393.87" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 393.87, 428.00)" font-family="sans-serif">fixed_rho=0.4_beta=0.2</text>
+<rect x="430.96" y="172.64" width="39.95" height="222.81" fill="#0b5fff" opacity="0.85"/>
+<text x="450.93" y="166.64" font-size="12" text-anchor="middle" font-family="sans-serif">25.8</text>
+<text x="450.93" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 450.93, 428.00)" font-family="sans-serif">fixed_rho=0.2_beta=0.4</text>
+<rect x="488.03" y="190.28" width="39.95" height="205.17" fill="#ff6b00" opacity="0.85"/>
+<text x="508.00" y="184.28" font-size="12" text-anchor="middle" font-family="sans-serif">23.7</text>
+<text x="508.00" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 508.00, 428.00)" font-family="sans-serif">random</text>
+<rect x="545.09" y="197.21" width="39.95" height="198.24" fill="#00a37a" opacity="0.85"/>
+<text x="565.07" y="191.21" font-size="12" text-anchor="middle" font-family="sans-serif">22.9</text>
+<text x="565.07" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 565.07, 428.00)" font-family="sans-serif">fixed_rho=0.3_beta=0.4</text>
+<rect x="602.16" y="243.66" width="39.95" height="151.80" fill="#d13b40" opacity="0.85"/>
+<text x="622.13" y="237.66" font-size="12" text-anchor="middle" font-family="sans-serif">17.6</text>
+<text x="622.13" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 622.13, 428.00)" font-family="sans-serif">heuristic</text>
+<rect x="659.23" y="248.55" width="39.95" height="146.90" fill="#7c4dff" opacity="0.85"/>
+<text x="679.20" y="242.55" font-size="12" text-anchor="middle" font-family="sans-serif">17</text>
+<text x="679.20" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 679.20, 428.00)" font-family="sans-serif">fixed_rho=0.4_beta=0.4</text>
+<rect x="716.29" y="248.93" width="39.95" height="146.52" fill="#b68a00" opacity="0.85"/>
+<text x="736.27" y="242.93" font-size="12" text-anchor="middle" font-family="sans-serif">16.9</text>
+<text x="736.27" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 736.27, 428.00)" font-family="sans-serif">fixed_rho=0.1_beta=0.6</text>
+<rect x="773.36" y="263.36" width="39.95" height="132.09" fill="#0b5fff" opacity="0.85"/>
+<text x="793.33" y="257.36" font-size="12" text-anchor="middle" font-family="sans-serif">15.3</text>
+<text x="793.33" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 793.33, 428.00)" font-family="sans-serif">fixed_rho=0.2_beta=0.6</text>
+<rect x="830.43" y="280.14" width="39.95" height="115.32" fill="#ff6b00" opacity="0.85"/>
+<text x="850.40" y="274.14" font-size="12" text-anchor="middle" font-family="sans-serif">13.3</text>
+<text x="850.40" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 850.40, 428.00)" font-family="sans-serif">fixed_rho=0.3_beta=0.6</text>
+<rect x="887.49" y="321.63" width="39.95" height="73.83" fill="#00a37a" opacity="0.85"/>
+<text x="907.47" y="315.63" font-size="12" text-anchor="middle" font-family="sans-serif">8.54</text>
+<text x="907.47" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 907.47, 428.00)" font-family="sans-serif">fixed_rho=0.4_beta=0.6</text>
+</svg>

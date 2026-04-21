@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+<rect width="100%" height="100%" fill="white"/>
+<text x="480.0" y="28" font-size="20" text-anchor="middle" font-family="sans-serif">DQN Action Distribution</text>
+<line x1="80" y1="48" x2="80" y2="412" stroke="#333" stroke-width="1.5"/>
+<line x1="80" y1="412" x2="936" y2="412" stroke="#333" stroke-width="1.5"/>
+<text x="22" y="270.0" font-size="14" text-anchor="middle" transform="rotate(-90, 22, 270.0)" font-family="sans-serif">Count Across Evaluation Runs</text>
+<line x1="80" y1="48.0" x2="936" y2="48.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="52.0" font-size="12" text-anchor="end" font-family="sans-serif">630</text>
+<line x1="80" y1="139.0" x2="936" y2="139.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="143.0" font-size="12" text-anchor="end" font-family="sans-serif">465</text>
+<line x1="80" y1="230.0" x2="936" y2="230.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="234.0" font-size="12" text-anchor="end" font-family="sans-serif">300</text>
+<line x1="80" y1="321.0" x2="936" y2="321.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="325.0" font-size="12" text-anchor="end" font-family="sans-serif">135</text>
+<line x1="80" y1="412.0" x2="936" y2="412.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="416.0" font-size="12" text-anchor="end" font-family="sans-serif">-30</text>
+<rect x="90.70" y="262.54" width="49.93" height="132.92" fill="#0b5fff" opacity="0.85"/>
+<text x="115.67" y="256.54" font-size="12" text-anchor="middle" font-family="sans-serif">241</text>
+<text x="115.67" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 115.67, 428.00)" font-family="sans-serif">0:0.1/0.2</text>
+<rect x="162.03" y="318.24" width="49.93" height="77.21" fill="#ff6b00" opacity="0.85"/>
+<text x="187.00" y="312.24" font-size="12" text-anchor="middle" font-family="sans-serif">140</text>
+<text x="187.00" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 187.00, 428.00)" font-family="sans-serif">1:0.1/0.4</text>
+<rect x="233.37" y="277.98" width="49.93" height="117.47" fill="#00a37a" opacity="0.85"/>
+<text x="258.33" y="271.98" font-size="12" text-anchor="middle" font-family="sans-serif">213</text>
+<text x="258.33" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 258.33, 428.00)" font-family="sans-serif">2:0.1/0.6</text>
+<rect x="304.70" y="64.55" width="49.93" height="330.91" fill="#d13b40" opacity="0.85"/>
+<text x="329.67" y="58.55" font-size="12" text-anchor="middle" font-family="sans-serif">600</text>
+<text x="329.67" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 329.67, 428.00)" font-family="sans-serif">3:0.2/0.2</text>
+<rect x="376.03" y="368.43" width="49.93" height="27.02" fill="#7c4dff" opacity="0.85"/>
+<text x="401.00" y="362.43" font-size="12" text-anchor="middle" font-family="sans-serif">49</text>
+<text x="401.00" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 401.00, 428.00)" font-family="sans-serif">4:0.2/0.4</text>
+<rect x="447.37" y="300.59" width="49.93" height="94.86" fill="#b68a00" opacity="0.85"/>
+<text x="472.33" y="294.59" font-size="12" text-anchor="middle" font-family="sans-serif">172</text>
+<text x="472.33" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 472.33, 428.00)" font-family="sans-serif">5:0.2/0.6</text>
+<rect x="518.70" y="374.50" width="49.93" height="20.96" fill="#0b5fff" opacity="0.85"/>
+<text x="543.67" y="368.50" font-size="12" text-anchor="middle" font-family="sans-serif">38</text>
+<text x="543.67" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 543.67, 428.00)" font-family="sans-serif">6:0.3/0.2</text>
+<rect x="590.03" y="357.95" width="49.93" height="37.50" fill="#ff6b00" opacity="0.85"/>
+<text x="615.00" y="351.95" font-size="12" text-anchor="middle" font-family="sans-serif">68</text>
+<text x="615.00" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 615.00, 428.00)" font-family="sans-serif">7:0.3/0.4</text>
+<rect x="661.37" y="395.45" width="49.93" height="0.00" fill="#00a37a" opacity="0.85"/>
+<text x="686.33" y="389.45" font-size="12" text-anchor="middle" font-family="sans-serif">0</text>
+<text x="686.33" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 686.33, 428.00)" font-family="sans-serif">8:0.3/0.6</text>
+<rect x="732.70" y="354.09" width="49.93" height="41.36" fill="#d13b40" opacity="0.85"/>
+<text x="757.67" y="348.09" font-size="12" text-anchor="middle" font-family="sans-serif">75</text>
+<text x="757.67" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 757.67, 428.00)" font-family="sans-serif">9:0.4/0.2</text>
+<rect x="804.03" y="393.25" width="49.93" height="2.21" fill="#7c4dff" opacity="0.85"/>
+<text x="829.00" y="387.25" font-size="12" text-anchor="middle" font-family="sans-serif">4</text>
+<text x="829.00" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 829.00, 428.00)" font-family="sans-serif">10:0.4/0.4</text>
+<rect x="875.37" y="395.45" width="49.93" height="0.00" fill="#b68a00" opacity="0.85"/>
+<text x="900.33" y="389.45" font-size="12" text-anchor="middle" font-family="sans-serif">0</text>
+<text x="900.33" y="428.00" font-size="11" text-anchor="end" transform="rotate(-35, 900.33, 428.00)" font-family="sans-serif">11:0.4/0.6</text>
+</svg>

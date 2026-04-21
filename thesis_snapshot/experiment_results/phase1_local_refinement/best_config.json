@@ -1,0 +1,42 @@
+{
+  "lambda_rate": 1.0,
+  "lambda_sync": 0.4,
+  "lambda_sensing": 0.5,
+  "mean_dqn_reward": 37.3315104853475,
+  "std_dqn_reward": 7.356200271872855,
+  "mean_dqn_rate": 4.154651736038323,
+  "std_dqn_rate": 0.4250490380913714,
+  "mean_dqn_sync": 0.10113938850320435,
+  "std_dqn_sync": 0.002190387751601568,
+  "mean_dqn_sensing": 0.2830258549388225,
+  "std_dqn_sensing": 0.015307579094435197,
+  "mean_gap_to_best_fixed": -5.938837832292209,
+  "std_gap_to_best_fixed": 6.20754422032392,
+  "selection_mode": "hybrid",
+  "seeds": [
+    7,
+    17,
+    27
+  ],
+  "lambda_sync_grid": [
+    0.2,
+    0.25,
+    0.3,
+    0.4
+  ],
+  "lambda_sensing_grid": [
+    0.4,
+    0.5,
+    0.6,
+    0.75
+  ],
+  "stability_window": 15.0,
+  "final_window_reward_mean": 31.931693791296205,
+  "final_window_reward_std": 4.881593435065458,
+  "final_window_reward_slope_abs": 0.4106072084079912,
+  "final_window_reward_step_abs": 5.2092068841159245,
+  "stability_score": 2.776329220114931,
+  "baseline_gap_factor": 0.1441163526471486,
+  "hybrid_score": 0.40011444095066645,
+  "selection_score": 0.40011444095066645
+}

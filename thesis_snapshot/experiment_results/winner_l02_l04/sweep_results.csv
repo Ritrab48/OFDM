@@ -1,0 +1,2 @@
+lambda_rate,lambda_sync,lambda_sensing,mean_dqn_reward,std_dqn_reward,mean_dqn_rate,mean_dqn_sync,mean_dqn_sensing,final_window_reward_mean,final_window_reward_std,final_window_reward_slope_abs,final_window_reward_step_abs,stability_score,mean_gap_to_best_fixed,baseline_gap_factor,selection_score
+1.0,0.2,0.4,46.88872551035564,3.6651961857531687,3.8497341465375734,0.09981247852803853,0.2855677281156064,45.536075461741866,5.706977602432376,0.08836409711344907,5.801799537762763,3.6147943889744596,-7.246092769899138,0.12126955491579212,0.43836450666303545
