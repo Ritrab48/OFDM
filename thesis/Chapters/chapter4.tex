@@ -87,7 +87,7 @@ The Q-network is a fully-connected MLP with the following architecture:
     \item \textbf{Hidden layers:} Two layers of 48 neurons each with ReLU activation.
     \item \textbf{Output layer:} 12 neurons (one per action), linear activation.
 \end{itemize}
-Weights are initialized with Glorot uniform initialization~\cite{sutton2018reinforcement} and biases are set to zero. The Adam optimizer is used with a learning rate of $10^{-3}$ and standard momentum parameters ($\beta_1 = 0.9$, $\beta_2 = 0.999$). The network is implemented in pure Python without external deep learning libraries.
+Weights are initialized with Glorot uniform initialization~\cite{sutton2018reinforcement} and biases are set to zero. The Adam optimizer is used with a learning rate of $10^{-3}$ and standard momentum parameters ($\beta_1 = 0.9$, $\beta_2 = 0.999$). The network is implemented directly in NumPy with vectorised forward and backward passes, without reliance on PyTorch, TensorFlow, or any other deep-learning framework.
 
 \section{State Encoding}
 
