@@ -44,6 +44,15 @@ def parse_args() -> argparse.Namespace:
         action=argparse.BooleanOptionalAction,
         default=True,
     )
+    parser.add_argument(
+        "--regime-switch-prob",
+        type=float,
+        default=0.0,
+        help="P(regime switch per frame). 0.0 = stationary (Phase 1 behaviour).",
+    )
+    parser.add_argument("--noise-variance", type=float, default=0.05)
+    parser.add_argument("--cfo-high-drift-std", type=float, default=20.0)
+    parser.add_argument("--cfo-high-drift-alpha", type=float, default=0.7)
     return parser.parse_args()
 
 
@@ -269,6 +278,10 @@ def build_paper_pack(
         "",
         f"- Sensing mode: `{system_config.sensing_metric_mode}`",
         f"- Reward normalization: `{system_config.reward_normalize_terms}`",
+        f"- CFO regime switch probability: `{system_config.cfo_regime_switch_prob}`",
+        f"- Noise variance: `{system_config.noise_variance}`",
+        f"- CFO high-drift std (Hz): `{system_config.cfo_high_drift_std_hz}`",
+        f"- CFO high-drift alpha: `{system_config.cfo_high_drift_alpha}`",
         f"- Episodes per run: `{training_config.episodes}`",
         f"- Frames per episode: `{system_config.episode_length}`",
         f"- Evaluation episodes per run: `{training_config.evaluation_episodes}`",
@@ -352,6 +365,10 @@ def main() -> None:
                     reward_sensing_weight=lambda_sensing,
                     reward_normalize_terms=args.reward_normalize,
                     sensing_metric_mode=args.sensing_mode,
+                    cfo_regime_switch_prob=args.regime_switch_prob,
+                    noise_variance=args.noise_variance,
+                    cfo_high_drift_std_hz=args.cfo_high_drift_std,
+                    cfo_high_drift_alpha=args.cfo_high_drift_alpha,
                 )
                 training_config = TrainingConfig(
                     episodes=args.episodes,
