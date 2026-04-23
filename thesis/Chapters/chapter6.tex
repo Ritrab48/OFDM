@@ -15,11 +15,11 @@ The key contributions delivered are:
 
     \item \textbf{MDP Formulation:} The joint pilot ratio and pilot power fraction selection problem was formulated as a finite-horizon MDP with a seven-dimensional observable state, twelve discrete actions, and a normalized three-component reward function.
 
-    \item \textbf{DQN Agent:} A Deep Q-Network with a two-hidden-layer MLP architecture (48 neurons per layer), experience replay, and a target network was trained to select $(\rho_t, \beta_t)$ at each frame. The implementation is self-contained in pure Python.
+    \item \textbf{DQN Agent:} A Deep Q-Network with a two-hidden-layer MLP architecture (48 neurons per layer), experience replay, and a target network was trained to select $(\rho_t, \beta_t)$ at each frame. The implementation is self-contained in NumPy and requires no deep-learning framework dependency.
 
     \item \textbf{Structured Reward-Weight Selection:} A stability-aware multi-seed sweep methodology was used to select the reward weights $(\lambda_{\text{rate}}, \lambda_{\text{sync}}, \lambda_{\text{sensing}}) = (1.0, 0.2, 0.4)$ from three confirmed candidates, providing a reproducible and defensible configuration.
 
-    \item \textbf{Baseline Comparison:} The trained DQN was compared against twelve fixed policies, a random policy, and a heuristic policy. The DQN outperformed the random policy (by $8.64$ reward units) and the heuristic policy (by $14.78$ reward units), confirming that a nontrivial adaptive policy was learned.
+    \item \textbf{Baseline Comparison:} The trained DQN was compared against twelve fixed policies, a random policy, and a heuristic policy. The DQN outperformed the random policy (by $8.20$ reward units) and the heuristic policy (by $14.34$ reward units), confirming that a nontrivial adaptive policy was learned.
 \end{enumerate}
 
 \section{Limitations}
@@ -31,13 +31,13 @@ The results should be interpreted in the context of several limitations:
 
     \item \textbf{Hindsight-best fixed baseline:} The best fixed policy ($\rho{=}0.1, \beta{=}0.2$, reward $53.05$) was identified after observing experimental results. In practice, the optimal fixed allocation is not known in advance and must itself be tuned. The comparison is therefore intentionally strict.
 
-    \item \textbf{Short training:} The DQN was trained for only 100 episodes of 64 frames each ($6400$ environment steps), which is modest for a tabular-equivalent problem of this size. Training longer or with NumPy-accelerated updates would likely improve convergence.
+    \item \textbf{Short training:} The DQN was trained for only 100 episodes of 64 frames each ($6400$ environment steps), which is modest for a tabular-equivalent problem of this size. An extended 500-episode run with the same reward weights was also carried out and showed a clear reward plateau near $45$ after episode 100, indicating that the ceiling observed in the 100-episode protocol is not purely a consequence of under-training; further progress would require a richer environment rather than simply longer training.
 
     \item \textbf{Flat-fading assumption:} The system model assumes the channel is flat across all $K$ subcarriers within a frame. This simplification is reasonable for narrowband ISAC but does not capture frequency-selective multipath effects relevant to wideband systems.
 
     \item \textbf{SISO operation:} The framework is limited to a single transmit and receive antenna. Extension to MIMO would require joint beamforming and pilot allocation design.
 
-    \item \textbf{Pure Python implementation:} The inner simulation loop uses Python-native lists and loops, making large-scale sweeps time-consuming. A NumPy refactor would improve throughput by an estimated 20--50$\times$.
+    \item \textbf{Python-level simulator loop:} While the DQN agent itself is vectorised in NumPy, the per-frame OFDM-ISAC simulator still executes through a Python-level loop over subcarriers and symbols. For the present problem size this is acceptable, but scaling to wider bandwidths or frequency-selective channels would benefit from vectorising or JIT-compiling the simulator's inner loop.
 \end{itemize}
 
 \section{Future Work}
@@ -47,7 +47,7 @@ The following extensions would meaningfully advance the system beyond the curren
 \begin{enumerate}
     \item \textbf{Non-stationary environment with regime switching:} Modelling the CFO process as switching between a low-drift and high-drift regime would create a genuinely dynamic problem where adaptive control is necessary. This is the most direct path to demonstrating clear DQN superiority over fixed baselines.
 
-    \item \textbf{NumPy-accelerated simulator:} Refactoring the simulator's inner loop from Python lists to NumPy array operations would reduce the cost per training step by orders of magnitude, enabling longer training runs and wider hyperparameter sweeps within practical time budgets.
+    \item \textbf{Vectorised simulator inner loop:} Refactoring the simulator's per-subcarrier and per-symbol loops into NumPy array operations (or compiling them via Numba / JAX) would further reduce the cost per training step and enable wider hyperparameter sweeps within practical time budgets.
 
     \item \textbf{Constrained reward formulation:} Rather than combining objectives into a scalar reward, a constrained MDP formulation could enforce hard minimum thresholds on synchronization quality while maximizing rate. This would provide cleaner separation of communication and sensing guarantees.
 

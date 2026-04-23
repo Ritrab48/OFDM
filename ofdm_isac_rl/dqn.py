@@ -1,22 +1,33 @@
-"""Pure-Python DQN implementation for the reference model."""
+"""NumPy-accelerated DQN implementation for the OFDM-ISAC reference model.
+
+Public API is identical to the earlier pure-Python version:
+    * ReplayBuffer, Transition, MLP, DQNAgent
+    * DQNAgent.select_action / remember / train_step / act_greedily / epsilon / export
+
+Serialization format for `MLP.to_dict()` is preserved (nested Python lists) so
+that old artifacts remain readable and new artifacts remain comparable.
+"""
 
 from __future__ import annotations
 
-import copy
 import math
 import random
 from collections import deque
 from dataclasses import dataclass
 
+import numpy as np
+
 from .config import SystemConfig, TrainingConfig
 
 
+# ── Transition & replay buffer ────────────────────────────────────────────────
+
 @dataclass(slots=True)
 class Transition:
-    state: list[float]
+    state: np.ndarray       # (input_dim,) float32
     action: int
     reward: float
-    next_state: list[float]
+    next_state: np.ndarray  # (input_dim,) float32
     done: bool
 
 
@@ -36,22 +47,18 @@ class ReplayBuffer:
         return len(self.storage)
 
 
-class AdamState:
-    def __init__(self, layers: list[dict[str, list[list[float]] | list[float]]]):
-        self.step = 0
-        self.weight_m = [self._zeros_like(layer["weights"]) for layer in layers]
-        self.weight_v = [self._zeros_like(layer["weights"]) for layer in layers]
-        self.bias_m = [self._zeros_like_vector(layer["biases"]) for layer in layers]
-        self.bias_v = [self._zeros_like_vector(layer["biases"]) for layer in layers]
-
-    def _zeros_like(self, matrix: list[list[float]]) -> list[list[float]]:
-        return [[0.0 for _ in row] for row in matrix]
-
-    def _zeros_like_vector(self, vector: list[float]) -> list[float]:
-        return [0.0 for _ in vector]
-
+# ── Vectorised MLP with Adam ──────────────────────────────────────────────────
 
 class MLP:
+    """Feed-forward network with ReLU hidden layers and linear output.
+
+    Stores weights as (out_dim, in_dim) arrays so that the forward pass is
+    ``h = relu(x @ W.T + b)``, matching the original row-per-neuron layout
+    and keeping the serialized format unchanged.
+    """
+
+    DTYPE = np.float64
+
     def __init__(
         self,
         input_size: int,
@@ -59,179 +66,149 @@ class MLP:
         output_size: int,
         rng: random.Random,
     ):
+        seed = rng.randrange(2 ** 31)
+        self._np_rng = np.random.default_rng(seed)
         layer_sizes = [input_size, *hidden_sizes, output_size]
-        self.layers: list[dict[str, list[list[float]] | list[float]]] = []
+        self.weights: list[np.ndarray] = []
+        self.biases:  list[np.ndarray] = []
         for fan_in, fan_out in zip(layer_sizes[:-1], layer_sizes[1:]):
             limit = math.sqrt(6.0 / (fan_in + fan_out))
-            weights = [
-                [rng.uniform(-limit, limit) for _ in range(fan_in)]
-                for _ in range(fan_out)
-            ]
-            biases = [0.0 for _ in range(fan_out)]
-            self.layers.append({"weights": weights, "biases": biases})
-        self.optimizer = AdamState(self.layers)
+            W = self._np_rng.uniform(-limit, limit, size=(fan_out, fan_in)).astype(self.DTYPE)
+            b = np.zeros(fan_out, dtype=self.DTYPE)
+            self.weights.append(W)
+            self.biases.append(b)
 
-    def predict(self, inputs: list[float]) -> list[float]:
-        activations = list(inputs)
-        for index, layer in enumerate(self.layers):
-            outputs: list[float] = []
-            for weights, bias in zip(layer["weights"], layer["biases"]):
-                value = sum(weight * feature for weight, feature in zip(weights, activations)) + bias
-                if index < len(self.layers) - 1:
-                    value = value if value > 0.0 else 0.0
-                outputs.append(value)
-            activations = outputs
-        return activations
+        # Adam state
+        self._m_w = [np.zeros_like(W) for W in self.weights]
+        self._v_w = [np.zeros_like(W) for W in self.weights]
+        self._m_b = [np.zeros_like(b) for b in self.biases]
+        self._v_b = [np.zeros_like(b) for b in self.biases]
+        self._adam_step = 0
 
+    # ── forward ───────────────────────────────────────────────────────────────
+    def predict(self, x) -> np.ndarray:
+        """Forward pass. Accepts a 1-D vector or a 2-D batch."""
+        a = np.asarray(x, dtype=self.DTYPE)
+        single = (a.ndim == 1)
+        if single:
+            a = a[None, :]
+        for i, (W, b) in enumerate(zip(self.weights, self.biases)):
+            z = a @ W.T + b
+            a = np.maximum(z, 0.0) if i < len(self.weights) - 1 else z
+        return a[0] if single else a
+
+    # ── training step ────────────────────────────────────────────────────────
     def train_batch(
         self,
-        batch: list[tuple[list[float], int, float]],
+        states: np.ndarray,   # (B, in_dim)
+        actions: np.ndarray,  # (B,) int
+        targets: np.ndarray,  # (B,) float
         learning_rate: float,
         clip_norm: float = 5.0,
     ) -> float:
-        gradients = []
-        for layer in self.layers:
-            gradients.append(
-                {
-                    "weights": [[0.0 for _ in row] for row in layer["weights"]],
-                    "biases": [0.0 for _ in layer["biases"]],
-                }
-            )
+        states  = np.asarray(states,  dtype=self.DTYPE)
+        actions = np.asarray(actions, dtype=np.int64)
+        targets = np.asarray(targets, dtype=self.DTYPE)
+        B = states.shape[0]
+        if B == 0:
+            return 0.0
 
-        total_loss = 0.0
-        batch_scale = 1.0 / max(len(batch), 1)
-        for inputs, action, target in batch:
-            activations: list[list[float]] = [list(inputs)]
-            pre_activations: list[list[float]] = []
-            current = list(inputs)
-            for index, layer in enumerate(self.layers):
-                layer_output: list[float] = []
-                layer_pre_activation: list[float] = []
-                for weights, bias in zip(layer["weights"], layer["biases"]):
-                    value = sum(weight * feature for weight, feature in zip(weights, current)) + bias
-                    layer_pre_activation.append(value)
-                    if index < len(self.layers) - 1:
-                        layer_output.append(value if value > 0.0 else 0.0)
-                    else:
-                        layer_output.append(value)
-                pre_activations.append(layer_pre_activation)
-                activations.append(layer_output)
-                current = layer_output
+        # Forward, caching activations and pre-activations
+        activations: list[np.ndarray] = [states]
+        pre_activations: list[np.ndarray] = []
+        a = states
+        for i, (W, b) in enumerate(zip(self.weights, self.biases)):
+            z = a @ W.T + b
+            pre_activations.append(z)
+            a = np.maximum(z, 0.0) if i < len(self.weights) - 1 else z
+            activations.append(a)
 
-            q_values = activations[-1]
-            error = q_values[action] - target
-            total_loss += error * error
+        q_values = activations[-1]                          # (B, n_actions)
+        selected = q_values[np.arange(B), actions]          # (B,)
+        errors = selected - targets                         # (B,)
+        loss = float((errors ** 2).sum()) / B               # MSE
 
-            deltas: list[list[float]] = []
-            output_delta = [0.0 for _ in q_values]
-            output_delta[action] = 2.0 * error * batch_scale
-            deltas.append(output_delta)
+        # Build output delta (same scaling as original: 2 * err / B at chosen action)
+        output_delta = np.zeros_like(q_values)
+        output_delta[np.arange(B), actions] = 2.0 * errors / B
 
-            for layer_index in range(len(self.layers) - 2, -1, -1):
-                downstream = deltas[0]
-                next_weights = self.layers[layer_index + 1]["weights"]
-                layer_delta: list[float] = []
-                for neuron_index in range(len(self.layers[layer_index]["biases"])):
-                    propagated = 0.0
-                    for next_neuron_index, next_neuron_weights in enumerate(next_weights):
-                        propagated += next_neuron_weights[neuron_index] * downstream[next_neuron_index]
-                    gradient_gate = 1.0 if pre_activations[layer_index][neuron_index] > 0.0 else 0.0
-                    layer_delta.append(propagated * gradient_gate)
-                deltas.insert(0, layer_delta)
+        # Backward
+        grad_W: list[np.ndarray] = [None] * len(self.weights)  # type: ignore[assignment]
+        grad_b: list[np.ndarray] = [None] * len(self.biases)   # type: ignore[assignment]
+        delta = output_delta
+        for i in range(len(self.weights) - 1, -1, -1):
+            a_prev = activations[i]                         # (B, in_dim_i)
+            grad_W[i] = delta.T @ a_prev                    # (out_i, in_i)
+            grad_b[i] = delta.sum(axis=0)                   # (out_i,)
+            if i > 0:
+                relu_mask = (pre_activations[i - 1] > 0.0).astype(self.DTYPE)
+                delta = (delta @ self.weights[i]) * relu_mask
 
-            for layer_index, delta in enumerate(deltas):
-                previous_activations = activations[layer_index]
-                for neuron_index, neuron_delta in enumerate(delta):
-                    gradients[layer_index]["biases"][neuron_index] += neuron_delta
-                    for input_index, activation in enumerate(previous_activations):
-                        gradients[layer_index]["weights"][neuron_index][input_index] += (
-                            neuron_delta * activation
-                        )
+        # Global-norm gradient clipping
+        norm_sq = 0.0
+        for g in grad_W: norm_sq += float((g * g).sum())
+        for g in grad_b: norm_sq += float((g * g).sum())
+        total_norm = math.sqrt(norm_sq)
+        if total_norm > clip_norm and total_norm > 0.0:
+            scale = clip_norm / total_norm
+            for g in grad_W: g *= scale
+            for g in grad_b: g *= scale
 
-        gradient_norm = 0.0
-        for layer_grads in gradients:
-            for row in layer_grads["weights"]:
-                for value in row:
-                    gradient_norm += value * value
-            for value in layer_grads["biases"]:
-                gradient_norm += value * value
-        gradient_norm = math.sqrt(gradient_norm)
-        if gradient_norm > clip_norm and gradient_norm > 0.0:
-            scale = clip_norm / gradient_norm
-            for layer_grads in gradients:
-                for row in layer_grads["weights"]:
-                    for index, value in enumerate(row):
-                        row[index] = value * scale
-                for index, value in enumerate(layer_grads["biases"]):
-                    layer_grads["biases"][index] = value * scale
+        # Adam update
+        self._adam_step += 1
+        beta1, beta2, eps = 0.9, 0.999, 1.0e-8
+        bc1 = 1.0 - beta1 ** self._adam_step
+        bc2 = 1.0 - beta2 ** self._adam_step
+        for i in range(len(self.weights)):
+            self._m_w[i] = beta1 * self._m_w[i] + (1.0 - beta1) * grad_W[i]
+            self._v_w[i] = beta2 * self._v_w[i] + (1.0 - beta2) * (grad_W[i] ** 2)
+            m_hat = self._m_w[i] / bc1
+            v_hat = self._v_w[i] / bc2
+            self.weights[i] -= learning_rate * m_hat / (np.sqrt(v_hat) + eps)
 
-        self._adam_update(gradients, learning_rate)
-        return total_loss * batch_scale
+            self._m_b[i] = beta1 * self._m_b[i] + (1.0 - beta1) * grad_b[i]
+            self._v_b[i] = beta2 * self._v_b[i] + (1.0 - beta2) * (grad_b[i] ** 2)
+            m_hat = self._m_b[i] / bc1
+            v_hat = self._v_b[i] / bc2
+            self.biases[i] -= learning_rate * m_hat / (np.sqrt(v_hat) + eps)
 
-    def _adam_update(
-        self,
-        gradients: list[dict[str, list[list[float]] | list[float]]],
-        learning_rate: float,
-    ) -> None:
-        beta1 = 0.9
-        beta2 = 0.999
-        epsilon = 1.0e-8
-        self.optimizer.step += 1
-        step = self.optimizer.step
-        bias_correction1 = 1.0 - beta1 ** step
-        bias_correction2 = 1.0 - beta2 ** step
+        return loss
 
-        for layer_index, (layer, layer_grads) in enumerate(zip(self.layers, gradients)):
-            for neuron_index, row in enumerate(layer["weights"]):
-                for weight_index, weight in enumerate(row):
-                    grad = layer_grads["weights"][neuron_index][weight_index]
-                    self.optimizer.weight_m[layer_index][neuron_index][weight_index] = (
-                        beta1 * self.optimizer.weight_m[layer_index][neuron_index][weight_index]
-                        + (1.0 - beta1) * grad
-                    )
-                    self.optimizer.weight_v[layer_index][neuron_index][weight_index] = (
-                        beta2 * self.optimizer.weight_v[layer_index][neuron_index][weight_index]
-                        + (1.0 - beta2) * grad * grad
-                    )
-                    m_hat = (
-                        self.optimizer.weight_m[layer_index][neuron_index][weight_index]
-                        / bias_correction1
-                    )
-                    v_hat = (
-                        self.optimizer.weight_v[layer_index][neuron_index][weight_index]
-                        / bias_correction2
-                    )
-                    row[weight_index] = weight - learning_rate * m_hat / (math.sqrt(v_hat) + epsilon)
-
-            for bias_index, bias in enumerate(layer["biases"]):
-                grad = layer_grads["biases"][bias_index]
-                self.optimizer.bias_m[layer_index][bias_index] = (
-                    beta1 * self.optimizer.bias_m[layer_index][bias_index]
-                    + (1.0 - beta1) * grad
-                )
-                self.optimizer.bias_v[layer_index][bias_index] = (
-                    beta2 * self.optimizer.bias_v[layer_index][bias_index]
-                    + (1.0 - beta2) * grad * grad
-                )
-                m_hat = self.optimizer.bias_m[layer_index][bias_index] / bias_correction1
-                v_hat = self.optimizer.bias_v[layer_index][bias_index] / bias_correction2
-                layer["biases"][bias_index] = (
-                    bias - learning_rate * m_hat / (math.sqrt(v_hat) + epsilon)
-                )
-
+    # ── cloning & serialisation ──────────────────────────────────────────────
     def copy(self) -> "MLP":
         clone = object.__new__(MLP)
-        clone.layers = copy.deepcopy(self.layers)
-        clone.optimizer = AdamState(clone.layers)
+        clone._np_rng = np.random.default_rng(0)   # target net does not train
+        clone.weights = [W.copy() for W in self.weights]
+        clone.biases  = [b.copy() for b in self.biases]
+        clone._m_w = [np.zeros_like(W) for W in clone.weights]
+        clone._v_w = [np.zeros_like(W) for W in clone.weights]
+        clone._m_b = [np.zeros_like(b) for b in clone.biases]
+        clone._v_b = [np.zeros_like(b) for b in clone.biases]
+        clone._adam_step = 0
         return clone
 
     def load_from(self, other: "MLP") -> None:
-        self.layers = copy.deepcopy(other.layers)
-        self.optimizer = AdamState(self.layers)
+        self.weights = [W.copy() for W in other.weights]
+        self.biases  = [b.copy() for b in other.biases]
+        # Target network is not trained; drop its optimiser state.
+        self._m_w = [np.zeros_like(W) for W in self.weights]
+        self._v_w = [np.zeros_like(W) for W in self.weights]
+        self._m_b = [np.zeros_like(b) for b in self.biases]
+        self._v_b = [np.zeros_like(b) for b in self.biases]
+        self._adam_step = 0
 
     def to_dict(self) -> dict[str, list[dict[str, list[list[float]] | list[float]]]]:
-        return {"layers": copy.deepcopy(self.layers)}
+        """Nested-list format preserved for backward compatibility."""
+        layers = []
+        for W, b in zip(self.weights, self.biases):
+            layers.append({
+                "weights": [row.tolist() for row in W],
+                "biases":  b.tolist(),
+            })
+        return {"layers": layers}
 
+
+# ── DQN agent ────────────────────────────────────────────────────────────────
 
 class DQNAgent:
     def __init__(self, system_config: SystemConfig, training_config: TrainingConfig):
@@ -249,13 +226,11 @@ class DQNAgent:
         self.replay = ReplayBuffer(training_config.replay_capacity, self.rng)
         self.total_steps = 0
 
-    def encode_state(self, state: list[float]) -> list[float]:
+    def encode_state(self, state: list[float]) -> np.ndarray:
         epsilon_hat, mismatch, sinr, pilot_snr, channel_power, rho, beta = state
-        epsilon_scale = max(
-            1.0,
-            self.system_config.subcarrier_spacing_hz * 0.25,
-        )
-        features = [
+        epsilon_scale = max(1.0, self.system_config.subcarrier_spacing_hz * 0.25)
+        clip = self.training_config.state_clip
+        features = np.array([
             epsilon_hat / epsilon_scale,
             mismatch / max(self.system_config.noise_variance, 1.0e-9),
             math.log1p(max(sinr, 0.0)) / self.training_config.log_feature_scale,
@@ -263,8 +238,9 @@ class DQNAgent:
             channel_power / self.training_config.channel_power_scale,
             rho,
             beta,
-        ]
-        return [self._clip(feature) for feature in features]
+        ], dtype=MLP.DTYPE)
+        np.clip(features, -clip, clip, out=features)
+        return features
 
     def epsilon(self) -> float:
         progress = min(self.total_steps, self.training_config.epsilon_decay_steps)
@@ -279,7 +255,7 @@ class DQNAgent:
         if explore and self.rng.random() < self.epsilon():
             return self.rng.randrange(len(self.action_space))
         q_values = self.q_network.predict(encoded)
-        return max(range(len(q_values)), key=lambda index: q_values[index])
+        return int(np.argmax(q_values))
 
     def remember(
         self,
@@ -307,16 +283,26 @@ class DQNAgent:
             return None
 
         batch = self.replay.sample(self.training_config.batch_size)
-        training_examples: list[tuple[list[float], int, float]] = []
-        for transition in batch:
-            target = transition.reward
-            if not transition.done:
-                target += self.training_config.gamma * max(
-                    self.target_network.predict(transition.next_state)
-                )
-            training_examples.append((transition.state, transition.action, target))
+        B = len(batch)
+        states      = np.empty((B, 7),     dtype=MLP.DTYPE)
+        next_states = np.empty((B, 7),     dtype=MLP.DTYPE)
+        actions     = np.empty(B,           dtype=np.int64)
+        rewards     = np.empty(B,           dtype=MLP.DTYPE)
+        dones       = np.empty(B,           dtype=bool)
+        for i, tr in enumerate(batch):
+            states[i]      = tr.state
+            next_states[i] = tr.next_state
+            actions[i]     = tr.action
+            rewards[i]     = tr.reward
+            dones[i]       = tr.done
+
+        # Bellman targets: r + gamma * max_a' Q_target(s', a')   if not done
+        next_q = self.target_network.predict(next_states)        # (B, n_actions)
+        max_next_q = next_q.max(axis=1)                          # (B,)
+        targets = rewards + self.training_config.gamma * max_next_q * (~dones)
+
         loss = self.q_network.train_batch(
-            training_examples,
+            states, actions, targets,
             learning_rate=self.training_config.learning_rate,
         )
 
@@ -335,7 +321,3 @@ class DQNAgent:
                 {"rho": rho, "beta": beta} for rho, beta in self.action_space
             ],
         }
-
-    def _clip(self, value: float) -> float:
-        limit = self.training_config.state_clip
-        return max(-limit, min(limit, value))

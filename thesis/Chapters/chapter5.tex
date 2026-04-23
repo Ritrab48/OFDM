@@ -16,6 +16,21 @@ Three candidate reward-weight configurations were evaluated in the final confirm
     \item \textbf{Candidate C:} $\lambda_{\text{sync}} = 0.2$, $\lambda_{\text{sensing}} = 0.4$
 \end{itemize}
 
+\begin{table}[!h]
+    \centering
+    \caption{Summary statistics for the three final reward-weight candidates, evaluated over five seeds $\{7,17,27,37,47\}$. The hybrid score combines stability and proximity to the best fixed baseline; higher is better. Candidate C is selected as the winner on the basis of highest mean DQN reward and strongest stability score across seeds.}
+    \label{tab:candidates}
+    \begin{tabular}{lcccc}
+        \toprule
+        Candidate & DQN Reward (mean $\pm$ std) & Stability Score & Gap to Best Fixed & Hybrid Score \\
+        \midrule
+        A: $\lambda_{\text{sync}}{=}0.4,\;\lambda_{\text{sensing}}{=}0.5$   & $30.00 \pm 6.13$ & 2.289 & $-9.41$ & 0.220 \\
+        B: $\lambda_{\text{sync}}{=}0.25,\;\lambda_{\text{sensing}}{=}0.5$  & $45.32 \pm 4.19$ & 2.892 & $-3.75$ & 0.609 \\
+        \textbf{C: $\lambda_{\text{sync}}{=}0.2,\;\lambda_{\text{sensing}}{=}0.4$} & $\mathbf{46.45 \pm 3.66}$ & \textbf{3.175} & $-7.69$ & 0.365 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
 \begin{figure}[!t]
     \centering
     \includegraphics[width=0.82\textwidth]{figures/candidate_reward.png}
@@ -37,7 +52,7 @@ Three candidate reward-weight configurations were evaluated in the final confirm
     \label{fig:candidate_gap}
 \end{figure}
 
-Figures~\ref{fig:candidate_reward}--\ref{fig:candidate_gap} compare the three candidates. Candidate C achieved the highest hybrid selection score and was selected as the winner. Its key statistics are: mean DQN reward $46.89 \pm 3.67$, stability score $3.61$, and mean gap to the best fixed baseline $-7.25$. The negative gap indicates that Candidate C's DQN did not surpass the hindsight-best fixed policy in expectation, but it represented the most stable and highest-scoring configuration among those evaluated.
+Figures~\ref{fig:candidate_reward}--\ref{fig:candidate_gap} compare the three candidates. Candidate C achieved the highest mean DQN reward and the strongest stability score among the three candidates, and was selected as the winner. Its key statistics are: mean DQN reward $46.45 \pm 3.66$, stability score $3.18$, and mean gap to the best fixed baseline $-7.69$. The negative gap indicates that Candidate C's DQN did not surpass the hindsight-best fixed policy in expectation, but it represented the most stable and highest-scoring configuration among those evaluated. Candidate B's hybrid score is nominally higher because its weighting places the best fixed policy closer to the DQN's operating point, but its training reward and seed-to-seed stability are both lower than Candidate C's.
 
 The final selected reward weights are:
 \[
@@ -53,9 +68,16 @@ The final selected reward weights are:
     \label{fig:reward_curve}
 \end{figure}
 
-Figure~\ref{fig:reward_curve} shows the per-episode reward throughout training. At episode 1, the mean reward is approximately $36.6$, reflecting the near-random policy under full $\varepsilon$-greedy exploration. By episode 25, the reward rises to approximately $44.6$ as the agent learns to prefer low-overhead actions. The reward reaches a plateau near $46$--$47$ by episode 50 and remains in this range through episode 80. The peak mean reward of $50.4$ is reached at episode 88, after which the curve shows mild oscillation. The mean reward at episode 100 is $42.6$.
+Figure~\ref{fig:reward_curve} shows the per-episode reward throughout training. At episode 1, the mean reward is approximately $35.8$, reflecting the near-random policy under full $\varepsilon$-greedy exploration. By episode 25, the reward has climbed to approximately $38.4$, and by episode 50 it reaches $42.1$ as the agent learns to prefer low-overhead actions. The reward settles into a plateau near $45$--$46$ from episode 75 onwards, with a transient spike to $53.3$ at episode 99 that reflects a favourable evaluation draw rather than a sustained improvement. The mean reward at episode 100 is $45.9$.
 
 The reward curve is inherently noisy due to the stochastic nature of the channel and CFO dynamics combined with the relatively short evaluation window (5 episodes). This is expected for a proof-of-concept training protocol of 100 episodes in a stochastic environment; the trend is nevertheless consistently upward over the first half of training.
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/training_components.png}
+    \caption{Per-component training curves over 100 episodes. Top: mean communication rate. Middle: mean synchronization mismatch $\cE_t$ with the noise floor $2\sigma^2 = 0.10$ shown as a dashed line. Bottom: mean sensing metric $S_t$. Thin lines show raw per-episode values; thick lines are a 5-episode moving average. The sync mismatch settles at the noise floor within the first few episodes and provides negligible differentiation thereafter, while the rate component accounts for the bulk of the learned improvement.}
+    \label{fig:training_components}
+\end{figure}
 
 \section{Baseline Comparison}
 
@@ -70,30 +92,37 @@ Table~\ref{tab:baseline} reports the mean reward, mean rate, mean sync mismatch,
 
 \begin{table}[!t]
     \centering
-    \caption{Policy comparison: mean performance across five seeds (100 evaluation episodes each). Policies sorted by descending mean reward. The hindsight-best fixed policy appears in bold. The DQN row is marked with $\star$.}
+    \caption{Policy comparison: mean performance across five seeds (100 evaluation episodes each). Policies sorted by descending mean reward; the $\pm$ column reports the standard deviation of the mean reward across seeds. The hindsight-best fixed policy appears in bold. The DQN row is marked with $(\star)$.}
     \label{tab:baseline}
-    \begin{tabular}{lcccc}
+    \begin{tabular}{lccccc}
         \toprule
-        Policy & Reward & Rate & Sync $\cE$ & Sensing $S$ \\
+        Policy & Reward & $\pm$ Std & Rate & Sync $\cE$ & Sensing $S$ \\
         \midrule
-        \textbf{Fixed} $\rho{=}0.1, \beta{=}0.2$ & \textbf{53.05} & \textbf{4.229} & 0.1005 & 0.299 \\
-        Fixed $\rho{=}0.2, \beta{=}0.2$ & 51.97 & 4.154 & 0.1002 & 0.292 \\
-        Fixed $\rho{=}0.3, \beta{=}0.2$ & 48.10 & 3.921 & 0.1002 & 0.284 \\
-        DQN $(\star)$ & 46.89 & 3.850 & \textbf{0.0998} & \textbf{0.286} \\
-        Fixed $\rho{=}0.1, \beta{=}0.4$ & 42.04 & 3.571 & 0.1007 & 0.281 \\
-        Fixed $\rho{=}0.4, \beta{=}0.2$ & 40.92 & 3.520 & 0.1003 & 0.292 \\
-        Fixed $\rho{=}0.2, \beta{=}0.4$ & 40.36 & 3.459 & 0.1004 & 0.272 \\
-        Random & 38.25 & 3.337 & 0.0997 & 0.275 \\
-        Fixed $\rho{=}0.3, \beta{=}0.4$ & 37.49 & 3.288 & 0.1004 & 0.268 \\
-        Heuristic & 32.11 & 2.981 & 0.1002 & 0.271 \\
-        Fixed $\rho{=}0.4, \beta{=}0.4$ & 31.60 & 2.959 & 0.1005 & 0.274 \\
-        Fixed $\rho{=}0.1, \beta{=}0.6$ & 31.58 & 2.958 & 0.1007 & 0.273 \\
-        Fixed $\rho{=}0.2, \beta{=}0.6$ & 29.81 & 2.839 & 0.1004 & 0.263 \\
-        Fixed $\rho{=}0.3, \beta{=}0.6$ & 27.86 & 2.723 & 0.1005 & 0.260 \\
-        Fixed $\rho{=}0.4, \beta{=}0.6$ & 23.09 & 2.456 & 0.1005 & 0.264 \\
+        \textbf{Fixed} $\rho{=}0.1, \beta{=}0.2$ & \textbf{53.05} & 4.04 & \textbf{4.229} & 0.1005 & 0.299 \\
+        Fixed $\rho{=}0.2, \beta{=}0.2$ & 51.97 & 3.33 & 4.154 & 0.1002 & 0.292 \\
+        Fixed $\rho{=}0.3, \beta{=}0.2$ & 48.10 & 1.21 & 3.921 & 0.1002 & 0.284 \\
+        DQN $(\star)$ & 46.45 & 3.66 & 3.826 & 0.1003 & \textbf{0.284} \\
+        Fixed $\rho{=}0.1, \beta{=}0.4$ & 42.04 & 5.31 & 3.571 & 0.1007 & 0.281 \\
+        Fixed $\rho{=}0.4, \beta{=}0.2$ & 40.92 & 1.64 & 3.520 & 0.1003 & 0.292 \\
+        Fixed $\rho{=}0.2, \beta{=}0.4$ & 40.36 & 4.57 & 3.459 & 0.1004 & 0.272 \\
+        Random & 38.25 & 2.52 & 3.337 & 0.0997 & 0.275 \\
+        Fixed $\rho{=}0.3, \beta{=}0.4$ & 37.49 & 1.61 & 3.288 & 0.1004 & 0.268 \\
+        Heuristic & 32.11 & 1.68 & 2.981 & 0.1002 & 0.271 \\
+        Fixed $\rho{=}0.4, \beta{=}0.4$ & 31.60 & 2.14 & 2.959 & 0.1005 & 0.274 \\
+        Fixed $\rho{=}0.1, \beta{=}0.6$ & 31.58 & 5.86 & 2.958 & 0.1007 & 0.273 \\
+        Fixed $\rho{=}0.2, \beta{=}0.6$ & 29.81 & 5.21 & 2.839 & 0.1004 & 0.263 \\
+        Fixed $\rho{=}0.3, \beta{=}0.6$ & 27.86 & 1.86 & 2.723 & 0.1005 & 0.260 \\
+        Fixed $\rho{=}0.4, \beta{=}0.6$ & 23.09 & 2.48 & 2.456 & 0.1005 & 0.264 \\
         \bottomrule
     \end{tabular}
 \end{table}
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=0.95\textwidth]{figures/all_policy_bar.png}
+    \caption{Mean reward ($\pm 1$ std across five seeds) for all fifteen policies plus DQN, sorted by ascending reward. The hindsight-best fixed policy $(\rho{=}0.1, \beta{=}0.2)$ is shown in green; the DQN in red; other fixed policies in blue; random and heuristic in purple and brown respectively. The dashed vertical line marks the DQN reward.}
+    \label{fig:all_policy_bar}
+\end{figure}
 
 \begin{figure}[!t]
     \centering
@@ -123,20 +152,27 @@ Table~\ref{tab:baseline} reports the mean reward, mean rate, mean sync mismatch,
     \label{fig:policy_sensing}
 \end{figure}
 
-The DQN achieves a mean reward of $46.89$, placing it fourth overall, above nine of the twelve fixed policies, the random policy, and the heuristic. However, it does not surpass the top three fixed configurations, all of which share $\beta{=}0.2$ (minimum pilot power fraction). The hindsight-best fixed policy ($\rho{=}0.1, \beta{=}0.2$) achieves a mean reward of $53.05$, a gap of $-7.25$ relative to the DQN.
+Figure~\ref{fig:all_policy_bar} shows the full ranking of all policies with error bars. The DQN achieves a mean reward of $46.45$, placing it fourth overall, above nine of the twelve fixed policies, the random policy, and the heuristic. However, it does not surpass the top three fixed configurations, all of which share $\beta{=}0.2$ (minimum pilot power fraction). The hindsight-best fixed policy ($\rho{=}0.1, \beta{=}0.2$) achieves a mean reward of $53.05$, a gap of $-6.60$ relative to the DQN.
 
-The random policy achieves a mean reward of $38.25$; the DQN exceeds this by $8.64$ reward units. The heuristic policy achieves $32.11$; the DQN exceeds it by $14.78$ reward units. These margins demonstrate that the DQN has learned a meaningful policy that is substantially better than naive strategies.
+The random policy achieves a mean reward of $38.25$; the DQN exceeds this by $8.20$ reward units. The heuristic policy achieves $32.11$; the DQN exceeds it by $14.34$ reward units. These margins demonstrate that the DQN has learned a meaningful policy that is substantially better than naive strategies.
 
 \section{Action Distribution Analysis}
 
 \begin{figure}[!t]
     \centering
+    \includegraphics[width=0.62\textwidth]{figures/action_heatmap.png}
+    \caption{DQN action selection frequency expressed as a percentage of total evaluation steps (1600 steps across 5 seeds $\times$ 5 evaluation episodes $\times$ 64 frames). Rows correspond to pilot ratio $\rho$; columns to pilot power fraction $\beta$.}
+    \label{fig:action_heatmap}
+\end{figure}
+
+\begin{figure}[!t]
+    \centering
     \includegraphics[width=0.85\textwidth]{figures/winner_action_mix.png}
-    \caption{Frequency distribution over the 12 discrete actions selected by the trained DQN during evaluation. Each action is labelled by its $(\rho, \beta)$ pair.}
+    \caption{Action selection frequency for the 12 discrete $(\rho, \beta)$ pairs as a bar chart.}
     \label{fig:action_dist}
 \end{figure}
 
-Figure~\ref{fig:action_dist} shows the distribution of actions selected by the final DQN during evaluation. The agent concentrates probability mass on low-overhead configurations, particularly those with $\beta{=}0.2$, which aligns with the reward structure: higher data power yields higher rate, which dominates the reward signal. The distribution is not degenerate (i.e., the agent does not exclusively select a single action), confirming that the policy responds to the varying state of the channel and synchronization quality.
+Figure~\ref{fig:action_heatmap} reveals the two-dimensional structure of the learned action distribution. Usage concentrates strongly in the $\beta{=}0.2$ column (61.7\% of all decisions), with the remaining mass split between $\beta{=}0.4$ (26.7\%) and a single $(\rho{=}0.1, \beta{=}0.6)$ cell. Specifically, the five most-used actions account for 90\% of decisions: $(\rho{=}0.2, \beta{=}0.2)$ at 33.8\%, $(\rho{=}0.2, \beta{=}0.4)$ at 25.8\%, $(\rho{=}0.3, \beta{=}0.2)$ and $(\rho{=}0.4, \beta{=}0.2)$ at 10.4\% each, and $(\rho{=}0.1, \beta{=}0.6)$ at 9.9\%. The three medium/high-overhead cells $(\rho \in \{0.3, 0.4\}, \beta \in \{0.4, 0.6\})$ are effectively unused ($<1\%$ combined). The distribution is not degenerate --- the agent switches between actions in response to the observed state --- but the concentration near low-$\beta$ configurations confirms that the rate term dominates the reward signal.
 
 \section{Discussion}
 

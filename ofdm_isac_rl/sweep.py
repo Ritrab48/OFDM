@@ -28,6 +28,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lambda-sync", type=str, default="0.25,0.5,1.0")
     parser.add_argument("--lambda-sensing", type=str, default="0.25,0.5,1.0")
     parser.add_argument("--output-dir", type=str, default="artifacts/weight_sweep")
+    parser.add_argument("--stability-window", type=int, default=8)
+    parser.add_argument(
+        "--selection-mode",
+        choices=("hybrid", "reward"),
+        default="hybrid",
+    )
     parser.add_argument(
         "--sensing-mode",
         choices=("empirical", "crlb"),
@@ -54,6 +60,77 @@ def mean_std(values: list[float]) -> tuple[float, float]:
     if len(values) == 1:
         return mean, 0.0
     return mean, statistics.stdev(values)
+
+
+def trailing_window(values: list[float], window: int) -> list[float]:
+    if not values:
+        return []
+    return values[-max(1, min(window, len(values))):]
+
+
+def mean_absolute_step(values: list[float]) -> float:
+    if len(values) < 2:
+        return 0.0
+    diffs = [abs(values[index] - values[index - 1]) for index in range(1, len(values))]
+    return statistics.mean(diffs)
+
+
+def linear_slope(values: list[float]) -> float:
+    if len(values) < 2:
+        return 0.0
+    x_values = [float(index) for index in range(len(values))]
+    x_mean = statistics.mean(x_values)
+    y_mean = statistics.mean(values)
+    numerator = sum((x - x_mean) * (y - y_mean) for x, y in zip(x_values, values))
+    denominator = sum((x - x_mean) ** 2 for x in x_values)
+    if denominator == 0.0:
+        return 0.0
+    return numerator / denominator
+
+
+def positive_floor(value: float) -> float:
+    return max(value, 1.0e-9)
+
+
+def baseline_gap_factor(gap: float) -> float:
+    positive_gap = max(0.0, gap)
+    negative_gap = max(0.0, -gap)
+    return (1.0 + positive_gap) / (1.0 + negative_gap)
+
+
+def compute_stability_metrics(
+    histories: list[list[dict[str, float]]],
+    window: int,
+) -> dict[str, float]:
+    final_means: list[float] = []
+    final_stds: list[float] = []
+    final_slopes: list[float] = []
+    final_step_means: list[float] = []
+
+    for history in histories:
+        rewards = [float(record["reward"]) for record in history]
+        final_rewards = trailing_window(rewards, window)
+        final_means.append(statistics.mean(final_rewards))
+        final_stds.append(statistics.pstdev(final_rewards) if len(final_rewards) > 1 else 0.0)
+        final_slopes.append(abs(linear_slope(final_rewards)))
+        final_step_means.append(mean_absolute_step(final_rewards))
+
+    final_mean, _ = mean_std(final_means)
+    final_std_mean, _ = mean_std(final_stds)
+    final_slope_mean, _ = mean_std(final_slopes)
+    final_step_mean, _ = mean_std(final_step_means)
+
+    stability_score = positive_floor(final_mean) / (
+        1.0 + final_std_mean + final_slope_mean + final_step_mean
+    )
+    return {
+        "stability_window": float(window),
+        "final_window_reward_mean": final_mean,
+        "final_window_reward_std": final_std_mean,
+        "final_window_reward_slope_abs": final_slope_mean,
+        "final_window_reward_step_abs": final_step_mean,
+        "stability_score": stability_score,
+    }
 
 
 def train_single_run(
@@ -200,21 +277,29 @@ def build_paper_pack(
         "",
         "## Best Weight Setting",
         "",
+        f"- Selection mode: `{best_entry['selection_mode']}`",
+        f"- Stability window: `{int(best_entry['stability_window'])}` episodes",
         f"- `lambda_rate = {best_entry['lambda_rate']}`",
         f"- `lambda_sync = {best_entry['lambda_sync']}`",
         f"- `lambda_sensing = {best_entry['lambda_sensing']}`",
         f"- Mean DQN reward across seeds: `{best_entry['mean_dqn_reward']:.4f}`",
+        f"- Final-window mean reward: `{best_entry['final_window_reward_mean']:.4f}`",
+        f"- Final-window reward std: `{best_entry['final_window_reward_std']:.4f}`",
+        f"- Final-window reward slope abs: `{best_entry['final_window_reward_slope_abs']:.4f}`",
+        f"- Stability score: `{best_entry['stability_score']:.4f}`",
         f"- Reward gap to best fixed baseline: `{best_entry['mean_gap_to_best_fixed']:.4f}`",
+        f"- Baseline-gap factor: `{best_entry['baseline_gap_factor']:.4f}`",
         "",
         "## Interpretation Notes",
         "",
-        "- Weight selection should be justified by final performance against baselines, not only by how fast the reward curve flattens.",
+        "- In `selection_mode=hybrid`, unstable curves are penalized and negative reward gaps to the best fixed baseline are penalized rather than ignored.",
+        "- The best setting is chosen by the configured selection rule, not by mean reward alone unless `selection_mode=reward` is used.",
         "- Empirical `S_t` is the paper-faithful default because it preserves the observable-only philosophy.",
         "- If the DQN does not beat the best fixed baseline under the current sweep, that should be stated honestly as a proof-of-concept limitation.",
         "",
         "## Main Tables",
         "",
-        "- `sweep_results.csv`: all weight combinations ranked by mean DQN reward",
+        "- `sweep_results.csv`: all weight combinations ranked by the configured selection score",
         "- `best_policy_summary.csv`: DQN and all baselines for the selected weight setting",
         "- `best_history.json`: mean training history across seeds for the selected weight setting",
         "",
@@ -230,7 +315,7 @@ def build_paper_pack(
         "",
         "## Remaining Work",
         "",
-        "- Revisit the state SINR term if strict observability is required; the current simulator still uses an analytically computed SINR.",
+        "- Finalize how the observable SINR proxy should be described in the paper.",
         "- Run a larger multi-seed sweep once faster numerical tooling is available or more runtime is acceptable.",
         "- Decide whether CRLB sensing should appear only as an ablation or also as a historical comparison.",
         "- If the best fixed baseline still beats DQN, improve training length, state design, or reward tuning before claiming adaptive superiority.",
@@ -302,6 +387,11 @@ def main() -> None:
             sync_mean, sync_std = mean_std(dqn_syncs)
             sensing_mean, sensing_std = mean_std(dqn_sensings)
             gap_mean, gap_std = mean_std(gaps)
+            histories = [payload["history"] for payload in run_payloads]
+            stability_metrics = compute_stability_metrics(
+                histories=histories,
+                window=args.stability_window,
+            )
 
             row = {
                 "lambda_rate": args.lambda_rate,
@@ -317,24 +407,37 @@ def main() -> None:
                 "std_dqn_sensing": sensing_std,
                 "mean_gap_to_best_fixed": gap_mean,
                 "std_gap_to_best_fixed": gap_std,
+                "selection_mode": args.selection_mode,
                 "seeds": seeds,
                 "lambda_sync_grid": lambda_sync_values,
                 "lambda_sensing_grid": lambda_sensing_values,
+                **stability_metrics,
             }
+            row["baseline_gap_factor"] = baseline_gap_factor(
+                row["mean_gap_to_best_fixed"]
+            )
+            row["hybrid_score"] = row["stability_score"] * row["baseline_gap_factor"]
+            row["selection_score"] = (
+                row["mean_dqn_reward"]
+                if args.selection_mode == "reward"
+                else row["hybrid_score"]
+            )
             sweep_rows.append(row)
-            if best_score is None or reward_mean > best_score:
-                best_score = reward_mean
+            if best_score is None or row["selection_score"] > best_score:
+                best_score = row["selection_score"]
                 best_runs_payload = {"row": row, "runs": run_payloads}
             print(
-                "sweep lambda_sync={lambda_sync} lambda_sensing={lambda_sensing} reward={reward:.4f} gap_to_best_fixed={gap:.4f}".format(
+                "sweep lambda_sync={lambda_sync} lambda_sensing={lambda_sensing} reward={reward:.4f} stability={stability:.4f} gap_to_best_fixed={gap:.4f} gap_factor={gap_factor:.4f}".format(
                     lambda_sync=lambda_sync,
                     lambda_sensing=lambda_sensing,
                     reward=reward_mean,
+                    stability=row["stability_score"],
                     gap=gap_mean,
+                    gap_factor=row["baseline_gap_factor"],
                 )
             )
 
-    sweep_rows.sort(key=lambda item: float(item["mean_dqn_reward"]), reverse=True)
+    sweep_rows.sort(key=lambda item: float(item["selection_score"]), reverse=True)
     assert best_runs_payload is not None
     best_entry = best_runs_payload["row"]
     best_histories = [payload["history"] for payload in best_runs_payload["runs"]]
@@ -362,7 +465,14 @@ def main() -> None:
             "mean_dqn_rate",
             "mean_dqn_sync",
             "mean_dqn_sensing",
+            "final_window_reward_mean",
+            "final_window_reward_std",
+            "final_window_reward_slope_abs",
+            "final_window_reward_step_abs",
+            "stability_score",
             "mean_gap_to_best_fixed",
+            "baseline_gap_factor",
+            "selection_score",
         ],
         [
             [
@@ -374,7 +484,14 @@ def main() -> None:
                 row["mean_dqn_rate"],
                 row["mean_dqn_sync"],
                 row["mean_dqn_sensing"],
+                row["final_window_reward_mean"],
+                row["final_window_reward_std"],
+                row["final_window_reward_slope_abs"],
+                row["final_window_reward_step_abs"],
+                row["stability_score"],
                 row["mean_gap_to_best_fixed"],
+                row["baseline_gap_factor"],
+                row["selection_score"],
             ]
             for row in sweep_rows
         ],
