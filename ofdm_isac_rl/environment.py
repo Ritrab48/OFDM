@@ -18,6 +18,8 @@ class OfdmIsacEnv:
         self.frame_index = 0
         self.current_cfo_hz = 0.0
         self.current_channel = complex(1.0, 0.0)
+        self.current_regime: int = 0   # 0=low-drift, 1=high-drift
+        self.prev_epsilon_hat: float = 0.0
         self.previous_state = self._initial_state()
         self.delay_grid = self._build_delay_grid()
 
@@ -25,6 +27,8 @@ class OfdmIsacEnv:
         self.frame_index = 0
         self.current_cfo_hz = self._sample_stationary_cfo()
         self.current_channel = self._sample_complex_gaussian()
+        self.current_regime = 0
+        self.prev_epsilon_hat = 0.0
         self.previous_state = self._initial_state()
         return list(self.previous_state)
 
@@ -104,6 +108,9 @@ class OfdmIsacEnv:
             - self.config.reward_sensing_weight * normalized_sensing
         )
 
+        delta_epsilon_hat = epsilon_hat - self.prev_epsilon_hat
+        self.prev_epsilon_hat = epsilon_hat
+
         next_state = [
             epsilon_hat,
             sync_mismatch,
@@ -112,10 +119,12 @@ class OfdmIsacEnv:
             channel_power_estimate,
             rho,
             beta,
+            delta_epsilon_hat,
         ]
         info = {
             "epsilon_true_hz": self.current_cfo_hz,
             "epsilon_hat_hz": epsilon_hat,
+            "regime": float(self.current_regime),
             "residual_cfo_hz": residual_cfo,
             "residual_cfo_power_est": residual_cfo_sq_estimate,
             "data_power": data_power,
@@ -154,6 +163,7 @@ class OfdmIsacEnv:
             0.0,
             self.config.default_pilot_ratio,
             self.config.default_pilot_power_fraction,
+            0.0,  # delta_epsilon_hat
         ]
 
     def _build_delay_grid(self) -> list[float]:
@@ -382,10 +392,16 @@ class OfdmIsacEnv:
         return sensing_metric / max(self.config.nominal_sensing_reference, 1.0e-24)
 
     def _advance_hidden_state(self) -> None:
-        self.current_cfo_hz = (
-            self.config.cfo_mean_reversion * self.current_cfo_hz
-            + self.rng.gauss(0.0, self.config.cfo_noise_std_hz)
-        )
+        if self.config.cfo_regime_switch_prob > 0.0:
+            if self.rng.random() < self.config.cfo_regime_switch_prob:
+                self.current_regime = 1 - self.current_regime
+        if self.current_regime == 1:
+            alpha = self.config.cfo_high_drift_alpha
+            std = self.config.cfo_high_drift_std_hz
+        else:
+            alpha = self.config.cfo_mean_reversion
+            std = self.config.cfo_noise_std_hz
+        self.current_cfo_hz = alpha * self.current_cfo_hz + self.rng.gauss(0.0, std)
         innovation = self._sample_complex_gaussian()
         self.current_channel = (
             self.config.channel_correlation * self.current_channel

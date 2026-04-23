@@ -217,7 +217,7 @@ class DQNAgent:
         self.rng = random.Random(training_config.seed)
         self.action_space = list(system_config.action_space)
         self.q_network = MLP(
-            input_size=7,
+            input_size=8,
             hidden_sizes=training_config.hidden_sizes,
             output_size=len(self.action_space),
             rng=self.rng,
@@ -227,7 +227,7 @@ class DQNAgent:
         self.total_steps = 0
 
     def encode_state(self, state: list[float]) -> np.ndarray:
-        epsilon_hat, mismatch, sinr, pilot_snr, channel_power, rho, beta = state
+        epsilon_hat, mismatch, sinr, pilot_snr, channel_power, rho, beta, delta_epsilon = state
         epsilon_scale = max(1.0, self.system_config.subcarrier_spacing_hz * 0.25)
         clip = self.training_config.state_clip
         features = np.array([
@@ -238,6 +238,7 @@ class DQNAgent:
             channel_power / self.training_config.channel_power_scale,
             rho,
             beta,
+            delta_epsilon / epsilon_scale,   # CFO trend: signed, same scale as epsilon_hat
         ], dtype=MLP.DTYPE)
         np.clip(features, -clip, clip, out=features)
         return features
@@ -284,8 +285,9 @@ class DQNAgent:
 
         batch = self.replay.sample(self.training_config.batch_size)
         B = len(batch)
-        states      = np.empty((B, 7),     dtype=MLP.DTYPE)
-        next_states = np.empty((B, 7),     dtype=MLP.DTYPE)
+        state_dim   = len(batch[0].state)
+        states      = np.empty((B, state_dim), dtype=MLP.DTYPE)
+        next_states = np.empty((B, state_dim), dtype=MLP.DTYPE)
         actions     = np.empty(B,           dtype=np.int64)
         rewards     = np.empty(B,           dtype=MLP.DTYPE)
         dones       = np.empty(B,           dtype=bool)

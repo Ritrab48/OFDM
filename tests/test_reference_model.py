@@ -17,9 +17,9 @@ class ReferenceModelTests(unittest.TestCase):
     def test_environment_step_returns_finite_metrics(self) -> None:
         env = OfdmIsacEnv(SystemConfig(episode_length=4, seed=3))
         state = env.reset()
-        self.assertEqual(len(state), 7)
+        self.assertEqual(len(state), 8)
         next_state, reward, done, info = env.step(0)
-        self.assertEqual(len(next_state), 7)
+        self.assertEqual(len(next_state), 8)
         self.assertIsInstance(done, bool)
         self.assertGreaterEqual(info["num_pilots"], 1.0)
         self.assertTrue(reward == reward)

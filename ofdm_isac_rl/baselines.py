@@ -52,7 +52,7 @@ class HeuristicPolicy(Policy):
         self.pilot_snr_high = 1.6
 
     def select_action(self, state: list[float]) -> int:
-        epsilon_hat, sync_mismatch, _, pilot_snr, channel_power, _, _ = state
+        epsilon_hat, sync_mismatch, _, pilot_snr, channel_power, _, _, *_ = state
         channel_adjust = 0 if channel_power >= 1.0 else 1
         rho_index = 0
         if abs(epsilon_hat) >= self.cfo_high or sync_mismatch >= self.sync_high:

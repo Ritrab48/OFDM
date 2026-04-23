@@ -37,6 +37,13 @@ class SystemConfig:
     sensing_delay_bins: int = 41
     episode_length: int = 64
     seed: int = 7
+    # Regime-switching CFO parameters (Phase 2a).
+    # Set cfo_regime_switch_prob > 0 to enable a hidden two-state Markov chain.
+    # Regime 0 (low-drift) uses cfo_mean_reversion / cfo_noise_std_hz.
+    # Regime 1 (high-drift) uses cfo_high_drift_alpha / cfo_high_drift_std_hz.
+    cfo_regime_switch_prob: float = 0.0
+    cfo_high_drift_alpha: float = 0.7
+    cfo_high_drift_std_hz: float = 20.0
 
     def __post_init__(self) -> None:
         if self.num_subcarriers < 4:
@@ -51,6 +58,10 @@ class SystemConfig:
             raise ValueError("sensing_delay_bins must be at least 3")
         if self.sensing_metric_mode not in {"crlb", "empirical"}:
             raise ValueError("sensing_metric_mode must be 'crlb' or 'empirical'")
+        if not 0.0 <= self.cfo_regime_switch_prob < 1.0:
+            raise ValueError("cfo_regime_switch_prob must lie in [0, 1)")
+        if not 0.0 < self.cfo_high_drift_alpha < 1.0:
+            raise ValueError("cfo_high_drift_alpha must lie in (0, 1)")
 
     @property
     def action_space(self) -> list[tuple[float, float]]:
